@@ -15,3 +15,8 @@ pip install -r requirements.txt
 ```linux
 streamlit run src/app.py
 ```
+
+## Resources
+### Langchain
+- [langchain_core](https://api.python.langchain.com/en/latest/core_api_reference.html)
+- [langchain_openai ChatOpenAI](https://api.python.langchain.com/en/latest/chat_models/langchain_openai.chat_models.base.ChatOpenAI.html)
