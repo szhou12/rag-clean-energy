@@ -4,24 +4,33 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
+from langchain_community.document_loaders import WebBaseLoader
 
-load_dotenv()
+
+load_dotenv() # Load environment variables from .env file
 
 # initialize chat_history stored in session_state
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [] # a list to store HumanMessage objects
+    st.session_state.chat_history = [] # a list to store HumanMessage & AIMessage objects
 
-st.set_page_config(page_title="Clean Energy AI Consultant", page_icon=":robot:")
+st.set_page_config(page_title="Clean Energy AI Consultant", page_icon="\N{robot face}")
 
-st.title("Clean Energy AI Consultant")
+st.title("Clean Energy AI Consultant \N{robot face}")
 
 
+def get_doc_from_url(url):
+    '''
+    Scrape the website's content from the given URL
+    '''
+    loader = WebBaseLoader(url)
+    doc = loader.load()
+    return doc
 
 # Get AI Response
 def get_ai_response(user_query, chat_history):
     template = """
     You are a professional consultant in the domain of clean energies. 
-    Please answer the following question by considering the the history of the conversation:
+    Please answer the following question by considering the history of the conversation:
 
     Chat history: {chat_history}
 
@@ -30,7 +39,7 @@ def get_ai_response(user_query, chat_history):
 
     prompt = ChatPromptTemplate.from_template(template)
 
-    # If not explicitly specified, it will by default go to .env file and read the value from key "OPENAI_API_KEY" 
+    # If not explicitly specified, it will by default load the env var by the key "OPENAI_API_KEY" 
     llm = ChatOpenAI(
         model="gpt-3.5-turbo",
         temperature=0,
@@ -78,3 +87,12 @@ if user_query is not None and user_query != "":
        ai_response = st.write_stream(get_ai_response(user_query, st.session_state.chat_history))
     
     st.session_state.chat_history.append(AIMessage(ai_response))
+
+with st.sidebar:
+    st.header("Scrape URL")
+    website_url = st.text_input("Website URL")
+    button_pressed = st.button("Scrape")
+    if website_url is not None and website_url != "" and button_pressed:
+        doc = get_doc_from_url(website_url)
+        st.write(doc)
+            
