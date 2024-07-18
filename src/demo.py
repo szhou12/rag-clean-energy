@@ -74,7 +74,7 @@ for message in st.session_state.chat_history:
 # NOTE: Display and Store current round of user input and AI response
 user_query = st.chat_input("Enter Your Question Here")
 if user_query is not None and user_query != "":
-    st.session_state.chat_history.append(HumanMessage(user_query))
+    st.session_state.chat_history.append(HumanMessage(content=user_query))
 
     # init a streamlit prompt context annotated with "Human"
     with st.chat_message("Human"):
@@ -86,7 +86,7 @@ if user_query is not None and user_query != "":
        # full response text is stored in ai_response
        ai_response = st.write_stream(get_ai_response(user_query, st.session_state.chat_history))
     
-    st.session_state.chat_history.append(AIMessage(ai_response))
+    st.session_state.chat_history.append(AIMessage(content=ai_response))
 
 with st.sidebar:
     st.header("Scrape URL")
