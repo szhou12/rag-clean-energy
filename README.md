@@ -16,6 +16,11 @@ pip install -r requirements.txt
 streamlit run src/demo.py
 ```
 
+## Improvements To-Do
+1. Llama-index node parser
+2. Embedding model selection
+3. Persist data in Chroma
+
 ## Resources
 ### Langchain
 - [langchain_core](https://api.python.langchain.com/en/latest/core_api_reference.html)

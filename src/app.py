@@ -4,10 +4,8 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
-from langchain_community.document_loaders import WebBaseLoader
-import requests
-from llama_index.core import Document
-from llama_index.core.node_parser import HTMLNodeParser
+
+import scrape
 
 load_dotenv() # Load environment variables from .env file
 
@@ -21,33 +19,18 @@ st.set_page_config(page_title="Clean Energy AI Consultant", page_icon="\N{robot 
 st.title("Clean Energy AI Consultant \N{robot face}")
 
 
-def get_doc_from_url(url):
-    '''
-    Scrape the website's content from the given URL
-    '''
-    loader = WebBaseLoader(url)
-    doc = loader.load()
-    return doc
 
-def get_html_text(url):
-    response = requests.get(url) # get HTML content from the URL
-    # print(response)
-    # print(response.text)
-    if response.status_code == 200:
-        # Extract the HTML content from the response. i.e. with tags and all that. same to inspect
-        html_doc = response.text
-        # Create a Document object with the HTML content
-        document = Document(id_=url, text=html_doc)
-        # Initialize the HTMLNodeParser with optional list of tags
-        parser = HTMLNodeParser(tags=["p", "h1"])
-        # Parse nodes from the HTML document
-        nodes = parser.get_nodes_from_documents([document])
-        return nodes
-    else:
-        return None
+def get_rag_response(user_query):
+    retriever_chain = scrape.get_context_retriever_chain(st.session_state.vector_store)
 
+    conversational_rag_chain = scrape.get_conversational_rag_chain(retriever_chain)
 
+    ai_response = conversational_rag_chain.invoke({
+        "chat_history": st.session_state.chat_history,
+        "input": user_query
+    })
 
+    return ai_response['answer']
 
 # Get AI Response
 def get_ai_response(user_query, chat_history):
@@ -83,11 +66,45 @@ def get_ai_response(user_query, chat_history):
 
 # initialize chat_history stored in session_state to persist for each reload
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [] # a list to store HumanMessage & AIMessage objects
+    # a list to store HumanMessage & AIMessage objects
+    st.session_state.chat_history = [
+        AIMessage(content="Hello, I am your Clean Energy AI Consultant. How can I help you?")
+    ]
 
 
-# Conversation Display between User and AI
-# NOTE: This block has to be placed before "User Input" block. Think of this block as displaying all previously stored messages.
+
+with st.sidebar:
+    st.header("Scrape URL")
+    website_url = st.text_input("Website URL")
+    # button_pressed = st.button("Scrape")
+
+    # if website_url is not None and website_url != "" and button_pressed:
+    #     # doc = get_doc_from_url(website_url)
+    #     doc_nodes = scrape.get_html_text_langchain(website_url)
+    #     if doc_nodes:
+    #         st.write(doc_nodes)
+
+if website_url is not None and website_url != "":
+    if "vector_store" not in st.session_state:
+        doc_nodes = scrape.get_html_text_langchain(website_url)
+        vector_store = scrape.save_vectorstore(doc_nodes)
+        st.session_state.vector_store = vector_store
+    
+
+    
+
+    user_query = st.chat_input("Enter Your Question Here")
+    if user_query is not None and user_query != "":
+        # ai_response = st.write_stream(get_ai_response(user_query, st.session_state.chat_history))
+        ai_response = get_rag_response(user_query)
+
+
+        st.session_state.chat_history.append(HumanMessage(content=user_query))
+        st.session_state.chat_history.append(AIMessage(content=ai_response))
+
+    
+
+
 for message in st.session_state.chat_history:
     if isinstance(message, HumanMessage):
         with st.chat_message("Human"):
@@ -95,35 +112,3 @@ for message in st.session_state.chat_history:
     else:
         with st.chat_message("AI"):
             st.markdown(message.content)
-
-
-# User Input
-# NOTE: Display and Store current round of user input and AI response
-user_query = st.chat_input("Enter Your Question Here")
-if user_query is not None and user_query != "":
-    st.session_state.chat_history.append(HumanMessage(content=user_query))
-
-    # init a streamlit prompt context annotated with "Human"
-    with st.chat_message("Human"):
-        st.markdown(user_query)
-
-    with st.chat_message("AI"):
-       # streamlit output AI response in real-time (streaming manner).
-       # st.write_stream() supports only sync streaming
-       # full response text is stored in ai_response
-       ai_response = st.write_stream(get_ai_response(user_query, st.session_state.chat_history))
-    
-    st.session_state.chat_history.append(AIMessage(content=ai_response))
-
-
-
-with st.sidebar:
-    st.header("Scrape URL")
-    website_url = st.text_input("Website URL")
-    button_pressed = st.button("Scrape")
-    if website_url is not None and website_url != "" and button_pressed:
-        # doc = get_doc_from_url(website_url)
-        doc_nodes = get_html_text(website_url)
-        if doc_nodes:
-            st.write(doc_nodes)
-                
