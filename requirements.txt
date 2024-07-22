@@ -4,5 +4,5 @@ langchain
 langchain-openai
 langchain-community
 beautifulsoup4
-llama_index
 chromadb
+llama_index

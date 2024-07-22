@@ -13,7 +13,7 @@ from llama_index.core.node_parser import LangchainNodeParser
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 
-load_dotenv()
+# load_dotenv()
 
 # Use llama_index HTMLNodeParser to extract HTML content
 def get_html_text_llamaindex(url):
@@ -59,10 +59,18 @@ def get_context_retriever_chain(vector_store):
 
     retriever = vector_store.as_retriever()
 
+    contextualize_q_system_prompt = (
+        "Given a chat history and the latest user question "
+        "which might reference context in the chat history, "
+        "formulate a standalone question which can be understood "
+        "without the chat history. Do NOT answer the question, "
+        "just reformulate it if needed and otherwise return it as is."
+    )
+
     prompt = ChatPromptTemplate.from_messages([
+        ("system", contextualize_q_system_prompt),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
-        ("human", "Given the above conversation, generate a search query to retrieve relevant information."),
     ])
 
     retriever_chain = create_history_aware_retriever(llm, retriever, prompt)
@@ -75,16 +83,17 @@ def get_conversational_rag_chain(retriever_chain):
         temperature=0,
     )
 
-    # context = retrieved documents
+    
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Answer the user's question based on the context below.\n\n{context}"),
+        ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n\n{context}"), # context = retriever_chain
         MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
+        ("human", "{input}"), # input = user query
     ])
 
     stuff_documents_chain = create_stuff_documents_chain(llm, prompt)
+    rag_chain = create_retrieval_chain(retriever_chain, stuff_documents_chain)
 
-    return create_retrieval_chain(retriever_chain, stuff_documents_chain)
+    return rag_chain
 
 
 
