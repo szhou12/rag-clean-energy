@@ -17,10 +17,15 @@ streamlit run src/demo.py
 streamlit run src/app.py
 ```
 
+Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
+
 ## Improvements To-Do
-1. Llama-index node parser
-2. Embedding model selection: huggingface
-3. Persist data in Chroma
+1. Abstract retrieval chain: to be a class
+2. Llama-index node parser
+3. Embedding model selection: huggingface
+4. Persist data in Chroma + cloud deployment
+5. how to solve chat history overloads 
+6. upload and parse pdf, word, excel files
 
 ## Resources
 ### Langchain
