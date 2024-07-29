@@ -4,8 +4,10 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
+from langchain_community.document_loaders import PyMuPDFLoader
 
 import scrape
+import upload
 
 load_dotenv() # Load environment variables from .env file
 
@@ -136,3 +138,9 @@ with st.sidebar:
     #     doc_nodes = scrape.get_html_text_langchain(website_url)
     #     if doc_nodes:
     #         st.write(doc_nodes)
+
+
+    uploaded_file = st.file_uploader("Choose a file", type=["pdf", "docx", "txt"])
+    if uploaded_file is not None:
+        t = upload.get_pdf_text_langchain(uploaded_file)
+        st.write(t)

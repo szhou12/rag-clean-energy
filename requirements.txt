@@ -6,3 +6,4 @@ langchain-community
 beautifulsoup4
 chromadb
 llama_index
+pymupdf

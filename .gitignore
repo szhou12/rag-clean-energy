@@ -156,3 +156,5 @@ dmypy.json
 # If you're using PyCharm, VSCode, etc., you might want to exclude their directories
 .idea/
 .vscode/
+
+temp/
