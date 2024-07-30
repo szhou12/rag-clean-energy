@@ -1,19 +1,20 @@
 from dotenv import load_dotenv
+import requests
+
 # from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 # from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_community.vectorstores import Chroma
-import requests
-from llama_index.core import Document
-from llama_index.core.node_parser import HTMLNodeParser
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from llama_index.core.node_parser import LangchainNodeParser
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 
-# load_dotenv()
+from llama_index.core import Document
+from llama_index.core.node_parser import HTMLNodeParser
+from llama_index.core.node_parser import LangchainNodeParser
+
 
 # Use llama_index HTMLNodeParser to extract HTML content
 def get_html_text_llamaindex(url):
@@ -44,10 +45,11 @@ def get_html_text_langchain(url):
     return doc_chunks
 
 
-def save_vectorstore(docs):
-    # docs = get_html_text_langchain(url)
+def save_vectorstore(chunks):
+    # chunks = get_html_text_langchain(url)
+    embedding_model = OpenAIEmbeddings()
     # Embeddings + create a Chroma db and store vectors (currently in-memory, not persistent)
-    vector_store = Chroma.from_documents(docs, OpenAIEmbeddings())
+    vector_store = Chroma.from_documents(chunks, embedding_model)
     return vector_store
 
 

@@ -35,6 +35,22 @@ def get_rag_response(user_query, chat_history):
     # return response["answer"] # use this if use conversational_rag_chain.invoke()
     return response
 
+
+def get_rag_response_pdf(user_query, chat_history):
+    retriever_chain = upload.get_context_retriever_chain(st.session_state.vector_store)
+
+    # conversational_rag_chain = LCEL Runnable
+    conversational_rag_chain = upload.get_conversational_rag_chain(retriever_chain)
+    chain = conversational_rag_chain.pick("answer")
+
+    response = chain.stream({
+        "chat_history": chat_history,
+        "input": user_query
+    })
+
+    # return response["answer"] # use this if use conversational_rag_chain.invoke()
+    return response
+
 # Get AI Response
 def get_ai_response(user_query, chat_history):
     template = """
@@ -115,7 +131,8 @@ if user_query is not None and user_query != "":
         if "vector_store" not in st.session_state:
             ai_response = st.write_stream(get_ai_response(user_query, st.session_state.chat_history))
         else:
-            ai_response = st.write_stream(get_rag_response(user_query, st.session_state.chat_history))
+            # ai_response = st.write_stream(get_rag_response(user_query, st.session_state.chat_history))
+            ai_response = st.write_stream(get_rag_response_pdf(user_query, st.session_state.chat_history))
             # st.write(ai_response) 
     
     st.session_state.chat_history.append(AIMessage(content=ai_response))
@@ -142,5 +159,8 @@ with st.sidebar:
 
     uploaded_file = st.file_uploader("Choose a file", type=["pdf", "docx", "txt"])
     if uploaded_file is not None:
-        t = upload.get_pdf_text_langchain(uploaded_file)
-        st.write(t)
+        doc_nodes = upload.get_pdf_text_langchain(uploaded_file)
+        vector_store = upload.save_vectorstore(doc_nodes)
+        st.session_state.vector_store = vector_store
+        st.write("File Uploaded and Parsed Successfully!")
+        

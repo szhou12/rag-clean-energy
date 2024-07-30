@@ -31,6 +31,7 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 ### Langchain
 - [langchain_core](https://api.python.langchain.com/en/latest/core_api_reference.html)
 - [langchain_openai ChatOpenAI](https://api.python.langchain.com/en/latest/chat_models/langchain_openai.chat_models.base.ChatOpenAI.html)
+- [langchain Chroma](https://python.langchain.com/v0.2/docs/integrations/vectorstores/chroma/)
 - [Streaming](https://python.langchain.com/v0.1/docs/expression_language/streaming/)
 - [Conversational RAG](https://python.langchain.com/v0.2/docs/tutorials/qa_chat_history/)
 - [Streaming Retrieval Chain](https://python.langchain.com/v0.2/docs/how_to/qa_streaming/)
