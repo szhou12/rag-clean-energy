@@ -26,6 +26,7 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 4. Persist data in Chroma + cloud deployment
 5. how to solve chat history overloads 
 6. upload and parse pdf, word, excel files
+7. auto download
 
 ## Resources
 ### Langchain
