@@ -45,3 +45,8 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 - [Tutorial | Chat with any Website using Python and Langchain (LATEST VERSION)](https://www.youtube.com/watch?v=bupx08ZgSFg&t=1968s&ab_channel=AlejandroAO-Software%26Ai)
 - [Stream LLMs with LangChain + Streamlit | Tutorial](https://www.youtube.com/watch?v=zKGeRWjJlTU&t=240s&ab_channel=AlejandroAO-Software%26Ai)
 - [Differences between Langchain & LlamaIndex](https://stackoverflow.com/questions/76990736/differences-between-langchain-llamaindex)
+
+### LLM
+- [零一万物Repo](https://github.com/01-ai/Yi?tab=readme-ov-file)
+- [使用 Dify、Meilisearch、零一万物模型实现最简单的 RAG 应用（三）：AI 电影推荐](https://mp.weixin.qq.com/s/Ri2ap9_5EMzdfiBhSSL_MQ)
+- [YiLLM Langchain](https://api.python.langchain.com/en/latest/llms/langchain_community.llms.yi.YiLLM.html#langchain_community.llms.yi.YiLLM)

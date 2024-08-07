@@ -7,3 +7,6 @@ beautifulsoup4
 chromadb
 llama_index
 pymupdf
+unstructured
+openpyxl
+markdown

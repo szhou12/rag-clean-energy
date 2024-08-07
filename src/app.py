@@ -157,9 +157,10 @@ with st.sidebar:
     #         st.write(doc_nodes)
 
 
-    uploaded_file = st.file_uploader("Choose a file", type=["pdf", "docx", "txt"])
+    uploaded_file = st.file_uploader("Choose a file", type=["pdf", "xlsx", "docx", "txt"])
     if uploaded_file is not None:
-        doc_nodes = upload.get_pdf_text_langchain(uploaded_file)
+        # doc_nodes = upload.get_pdf_text_langchain(uploaded_file)
+        doc_nodes = upload.split_text_langchain(uploaded_file)
         vector_store = upload.save_vectorstore(doc_nodes)
         st.session_state.vector_store = vector_store
         st.write("File Uploaded and Parsed Successfully!")
