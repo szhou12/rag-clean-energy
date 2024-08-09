@@ -41,7 +41,7 @@ def save_and_load_file(file):
                 with open(md_file_path, 'w') as f:
                     f.write(markdown_text)
 
-            loader = UnstructuredMarkdownLoader(md_file_path, mode="elements") # mode="elements" will create html-like table to present the data
+            loader = UnstructuredMarkdownLoader(md_file_path, mode="elements") # mode="elements" creates html-like table to present the data
         else:
             raise ValueError(f"Unsupported file type: {file_ext}")
         return loader.load()
