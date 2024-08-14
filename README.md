@@ -28,6 +28,10 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 6. upload and parse pdf, word, excel files
 7. auto download
 
+
+## 改进的地方
+1. `upload.py`: `save_and_load_file()` 分开成 `save_file()` 和 `load_file()`
+
 ## Resources
 ### Langchain
 - [langchain_core](https://api.python.langchain.com/en/latest/core_api_reference.html)

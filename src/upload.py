@@ -1,5 +1,7 @@
 import os
 import pandas as pd
+from uuid import uuid4
+
 from langchain_community.document_loaders import PyMuPDFLoader, UnstructuredExcelLoader, UnstructuredMarkdownLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -17,7 +19,7 @@ def save_and_load_file(file):
     
     file_basename, file_ext = os.path.splitext(file.name)  # Get the file extension
 
-    
+    docs = []
 
     # Function to check the file type
     def load_file_type(file_ext):
@@ -31,27 +33,41 @@ def save_and_load_file(file):
 
             # NOTE: PyMuPDFLoader takes ONLY the file path (str) as an argument. So need to save the file to local before loading
             loader = PyMuPDFLoader(file_path)
+            docs.append(loader.load())
         elif file_ext.lower() in ['.xls', '.xlsx']:
-            df = pd.read_excel(file)
-            markdown_text = df.to_markdown(index=False)
+            # df = pd.read_excel(file)
+            # markdown_text = df.to_markdown(index=False)
 
-            md_file_path = os.path.join(temp_dir, file_basename+".md")
-            if not os.path.exists(md_file_path):
-                print('Saving md file to temp directory')
-                with open(md_file_path, 'w') as f:
-                    f.write(markdown_text)
+            # md_file_path = os.path.join(temp_dir, file_basename+".md")
+            # if not os.path.exists(md_file_path):
+            #     print('Saving md file to temp directory')
+            #     with open(md_file_path, 'w') as f:
+            #         f.write(markdown_text)
 
-            loader = UnstructuredMarkdownLoader(md_file_path, mode="elements") # mode="elements" creates html-like table to present the data
+            # load multiple sheets in one excel file
+            excel_data = pd.read_excel(file, sheet_name=None)  # Read all sheets
+            for sheet_name, df in excel_data.items():
+                markdown_text = df.to_markdown(index=False)
+                if not markdown_text: # skip empty sheets
+                    continue
+                md_file_path = os.path.join(temp_dir, f"{file_basename}_{sheet_name}.md")
+                if not os.path.exists(md_file_path):
+                    print(f'Saving {sheet_name} sheet as md file to temp directory')
+                    with open(md_file_path, 'w') as f:
+                        f.write(markdown_text)
+
+                loader = UnstructuredMarkdownLoader(md_file_path, mode="elements") # mode="elements" creates html-like table to present the data
+                docs.append(loader.load())
         else:
             raise ValueError(f"Unsupported file type: {file_ext}")
-        return loader.load()
+        # return loader.load()
     
     try:
-        doc = load_file_type(file_ext)
+        load_file_type(file_ext)
     except ValueError as e: # re-raise it to let it propagate to whoever calls save_and_parse_file()
         raise e
     
-    return doc
+    return docs # list of list of documents
 
 def split_text_langchain(file):
     
@@ -74,18 +90,18 @@ def split_text_langchain(file):
         ],
         # Existing args
         chunk_size=1000,
-        chunk_overlap=100,
+        chunk_overlap=200,
         length_function=len
     )
 
     try:
-        doc = save_and_load_file(file)
-        doc_chunks = text_splitter.split_documents(doc)
+        docs = save_and_load_file(file)
+        doc_chunks_list = [text_splitter.split_documents(doc) for doc in docs]
     except ValueError as e: 
         print(e)
         raise
 
-    return doc_chunks
+    return doc_chunks_list
 
 
 # def get_excel_text_langchain(file):
@@ -156,6 +172,15 @@ def save_vectorstore(chunks):
     # TODO: persist to disk
     vector_store = Chroma.from_documents(filter_complex_metadata(chunks), embedding_model)
     return vector_store
+
+def create_vectorstore():
+    embedding_model = OpenAIEmbeddings()
+    vector_store = Chroma(embedding_function=embedding_model)
+    return vector_store
+
+def add_to_vectorstore(vector_store, chunks):
+    uuids = [str(uuid4()) for _ in range(len(chunks))]
+    vector_store.add_documents(documents=filter_complex_metadata(chunks), ids=uuids)
 
 def get_context_retriever_chain(vector_store):
     llm = ChatOpenAI(
