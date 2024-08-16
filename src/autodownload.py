@@ -13,7 +13,7 @@ def scrape_and_download(url, download_folder='downloads'):
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, 'html.parser')
-    file_extensions = ['.pdf', '.zip', '.docx', '.xlsx', '.jpg', '.png']
+    file_extensions = ['.pdf', '.zip', '.docx', '.xlsx']
     links = soup.find_all('a', href=True)
 
     downloaded_files = []
@@ -22,6 +22,7 @@ def scrape_and_download(url, download_folder='downloads'):
         if any(href.endswith(ext) for ext in file_extensions):
             file_url = urljoin(url, href)
             file_name = download_file(file_url, download_dir)
+            print(file_name)
             downloaded_files.append(file_name)
 
     return downloaded_files
