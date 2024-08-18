@@ -27,10 +27,17 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 5. how to solve chat history overloads 
 6. upload and parse pdf, word, excel files
 7. auto download
+8. RAG on Tabular data
+    - maybe helful: 
+        - [SheetSimplify with RAG LLMs](https://github.com/sivadhulipala1999/SheetSimplify_with_RAG/tree/main)
+        - [LLMs for Advanced Question-Answering over Tabular/CSV/SQL Data (Building Advanced RAG, Part 2)](https://www.youtube.com/watch?v=L1o1VPVfbb0)
 
 
 ## 改进的地方
 1. `upload.py`: `save_and_load_file()` 分开成 `save_file()` 和 `load_file()`
+
+## Troubleshooting
+- [ValueError when using UnstructuredMarkdownLoader](https://github.com/langchain-ai/langchain/issues/8556)
 
 ## Resources
 ### Langchain
@@ -65,3 +72,6 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 - [Docker 部署Streamlit项目 | Streamlit如何部署到云服务器](https://developer.aliyun.com/article/1436718)
 - [怎么把Streamlit部署到阿里云](https://wenku.csdn.net/answer/b2ded916ab19491b9bdc403183039ef5)
 - [网站如何部署到阿里云服务器教程](https://developer.aliyun.com/article/773053)
+
+### Nginx
+- [Streamlit with Nginx](https://medium.com/featurepreneur/streamlit-with-nginx-bde7a9a41e6c)
