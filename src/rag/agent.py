@@ -1,5 +1,9 @@
+# rag/agent.py
+import os
+from rag.parsers import PDFParser, ExcelParser
+
 class RAGAgent:
-    def __init__(self, vector_store, embedder, scraper, parser, retriever, response_template):
+    def __init__(self, vector_store, embedder, scraper=None, parser=None, retriever=None, response_template=None):
         """
         Initialize the RAGAgent with necessary components.
         
@@ -38,13 +42,22 @@ class RAGAgent:
 
     def process_file(self, file):
         """
-        Process an uploaded file: parse content, embed, and save to vector store.
+        Process an uploaded file: parse file content (i.e. conert to List[List[Document]]) (embed, and save to vector store)
         
-        :param file: The uploaded file (e.g., PDF, Excel)
+        :param file: The uploaded file. Currently support: PDF, Excel (multiple sheets)
         :return: None
         """
+        file_ext = os.path.splitext(file.name)[1].lower()
         # Step 1: Parse content from the file
-        content = self.parser.parse(file)
+        if file_ext == '.pdf':
+            parser = PDFParser(file)
+        elif file_ext in ['.xls', '.xlsx']:
+            parser = ExcelParser(file)
+        else:
+            raise ValueError(f"Unsupported file type: {file_ext}")
+        
+        # content = [ List[Document], List[Document], ... ]
+        content = parser.load_file()
         
         # Step 2: Split content into manageable chunks
         chunks = self.split_text(content)

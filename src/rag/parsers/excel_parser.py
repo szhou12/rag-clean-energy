@@ -5,11 +5,18 @@ import pandas as pd
 from langchain.document_loaders import UnstructuredMarkdownLoader
 
 class ExcelParser(BaseParser):
-    def save_file(self):
+    def save_file(self, sheet_name, markdown_text):
         """
         Save the Excel file (per sheet) to the directory = self.dir
         :return: The file path where the file is saved.
         """
+        md_file_path = os.path.join(self.dir, f"{self.file_basename}_{sheet_name}.md")
+        if not os.path.exists(md_file_path):
+            print(f'Saving {sheet_name} sheet as md file to temp directory')
+            with open(md_file_path, 'w') as f:
+                f.write(markdown_text)
+        
+        return md_file_path
 
 
     def load_file(self):
@@ -22,19 +29,24 @@ class ExcelParser(BaseParser):
         
         # iterate over each sheet
         for sheet_name, df in excel_data.items():
-
-            # TODO: clean df before converting to markdown
-            markdown_text = df.to_markdown(index=False)
-            if not markdown_text:  # Skip empty sheets
+            if df.empty: # Skip empty sheets
                 continue
-            
-            md_file_path = os.path.join(self.dir, f"{self.file_basename}_{sheet_name}.md")
-            if not os.path.exists(md_file_path):
-                print(f'Saving {sheet_name} sheet as md file to temp directory')
-                with open(md_file_path, 'w') as f:
-                    f.write(markdown_text)
 
-            loader = UnstructuredMarkdownLoader(md_file_path, mode="elements")
+            df = self.clean_df(df)
+            markdown_text = df.to_markdown(index=False)
+            
+            file_path = self.save_file(sheet_name, markdown_text)
+
+            loader = UnstructuredMarkdownLoader(file_path, mode="elements")
             docs.append(loader.load())
         
         return docs
+    
+    def clean_df(self, df):
+        """
+        Clean the DataFrame before converting to markdown.
+        """
+        df.dropna(how='all', inplace=True)  # Drop rows where all cells are empty
+        df.dropna(axis=1, how='all', inplace=True)  # Drop columns where all cells are empty
+        df.fillna('', inplace=True)  # Replace NaN cells with empty strings
+        return df
