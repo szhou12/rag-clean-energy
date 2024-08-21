@@ -25,10 +25,10 @@ class WebScraper:
     
     def scrape(self, url, max_pages=1, autodownload=False):
         """
-        Scrape content from one or multiple pages starting from the given URL.
-        Uses BFS to follow links to next pages.
+        Scrape content from one or multiple pages starting from the given root URL.
+        Use BFS to follow links to next pages, only enqueuing sub-URLs/subdirectories of the root URL.
 
-        :param url: The URL to start scraping from.
+        :param url: The root URL to start scraping from.
         :param max_pages: Maximum number of pages to scrape (default is 1).
         :param autodownload: If True, automatically download files attached to each web page.
         :return: List of documents loaded from the URLs, List of newly downloaded file paths in current scraping session
@@ -41,6 +41,9 @@ class WebScraper:
         # Step 1: start node
         queue = deque([url])
         visited.add(url)
+
+        # Parse the root URL to get the base for comparison with children URLs
+        root_url_parsed = urlparse(url)
 
         # Step 2: Loop
         while queue and pages_scraped < max_pages:
@@ -73,10 +76,14 @@ class WebScraper:
                 # check if already visited
                 if nei_url in visited:
                     continue
+                # check if a valid sub-URL of the root URL
+                if not self._is_valid_suburl(root_url_parsed, urlparse(nei_url)):
+                    continue
+
                 queue.append(nei_url)
                 visited.add(nei_url)
        
-        # Update the scraped URLs file before returning results
+        # Write all scraped URLs into the text file before returning results
         self._update_scraped_urls_file()
        
         return documents, newly_downloaded_files
@@ -85,6 +92,7 @@ class WebScraper:
     def _langchain_load_url(self, url):
         """
         Use Langchain to load the content of a web page from a given URL.
+        Record the URL that's been successfully scraped by Langchain in the set
         
         :param url: URL of the web page to load
         :return: List[Document] or None if the URL has already been scraped
@@ -136,7 +144,7 @@ class WebScraper:
             for url in self.scraped_urls:
                 f.write(f"{url}\n")
 
-    def _load_existing_files(self):
+    def _load_existing_files(self) -> set:
         existing_files = set()
         for root, _, files in os.walk(self.dir):
             for file in files:
@@ -172,7 +180,7 @@ class WebScraper:
         
         return local_filename
     
-    def _detect_and_download_files(self, soup, base_url):
+    def _detect_and_download_files(self, soup, base_url) -> list:
         """
         Private method to detect and download files attached to the web page.
         Detects [.pdf, .xlsx, .xls] file types.
@@ -196,11 +204,50 @@ class WebScraper:
 
         return newly_downloaded_files
 
-    def _is_valid_url(self, url):
+    def _is_valid_url(self, url) -> bool:
         """
         Validate the URL to ensure it has both a scheme and network location.
+        Scheme: https, http
+        Network location: domain name + port name (optional). e.g. www.iea.org, www.iea.org:8080
         """
         parsed = urlparse(url)
         return bool(parsed.netloc) and bool(parsed.scheme)
+    
+    def _is_valid_suburl(self, root_url_parsed, child_url_parsed) -> bool:
+        """
+        Validate the child URL to ensure it is a sub-URL of the root URL.
+        
+        :param root_url_parsed: Parsed result of the root URL provided by the user.
+        :param child_url_parsed: Parsed result of the child URL connected to the root URL.
+        :return: True if child_url_parsed is a valid sub-URL of root_url_parsed, False otherwise.
+
+        Example:
+        https://www.iea.org/energy-system/fossil-fuels/coal is a sub-URL of https://www.iea.org/energy-system/fossil-fuels
+        Cases that are NOT sub-URLs:
+        1. Do NOT have the complete root URL path
+        https://www.iea.org/about is NOT a sub-URL of https://www.iea.org/energy-system/fossil-fuels
+        2. Fragment identifier (path followed by # symbol):
+        https://www.iea.org/energy-system/fossil-fuels#content is NOT a sub-URL of https://www.iea.org/energy-system/fossil-fuels
+        3. Query parameters (path followed by ? symbol):
+        https://www.iea.org/energy-system/fossil-fuels?ref=home is NOT a sub-URL of https://www.iea.org/energy-system/fossil-fuels
+        """
+        # Check that the network location (domain) matches
+        if root_url_parsed.netloc != child_url_parsed.netloc:
+            return False
+        
+        # Check that the child URL path starts with the root URL path and is longer
+        if not child_url_parsed.path.startswith(root_url_parsed.path):
+            return False
+        
+        # Ensure that the child path is not just the root path with a fragment or query
+        # The child path must be strictly longer than the root path (excluding trivial cases)
+        if (child_url_parsed.path == root_url_parsed.path and (child_url_parsed.fragment or child_url_parsed.query)):
+            return False
+        
+        # Ensure the child path is a true subdirectory
+        if child_url_parsed.path == root_url_parsed.path:
+            return False
+        
+        return True
     
     

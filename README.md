@@ -39,6 +39,11 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 2. file parser: define a parser class to parse user-uploaded files
     - abstarct class: `BaseParser`
     - subclasses: `PDFParser`, `ExcelParser` extend from `BaseParser`
+3. TODO: webscraper class
+    1. only enqueue subdirectories given a root URL :white_check_mark:
+    2. filter out irrelevant URLs: e.g. "About", "Contact"
+    3. parse downloaded files
+4. TODO: [update Langchain](https://python.langchain.com/v0.2/docs/versions/v0_2/)
 
 ## Troubleshooting
 - [ValueError when using UnstructuredMarkdownLoader](https://github.com/langchain-ai/langchain/issues/8556)
