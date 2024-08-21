@@ -41,7 +41,7 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
     - subclasses: `PDFParser`, `ExcelParser` extend from `BaseParser`
 3. TODO: webscraper class
     1. only enqueue subdirectories given a root URL :white_check_mark:
-    2. filter out irrelevant URLs: e.g. "About", "Contact"
+    2. filter out irrelevant URLs: e.g. "About", "Contact" :white_check_mark:
     3. parse downloaded files
 4. TODO: [update Langchain](https://python.langchain.com/v0.2/docs/versions/v0_2/)
 

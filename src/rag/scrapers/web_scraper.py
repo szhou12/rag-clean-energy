@@ -7,8 +7,8 @@ from urllib.parse import urljoin, urlparse
 
 class WebScraper:
     def __init__(self, dir=None):
-        # self.url = url
         # TODO: AFTER setup databse, use env variable to store the directory path
+        # self.dir stores auto-downloaded files when scraping
         self.dir = dir or os.path.join(os.path.dirname(__file__), '..', '..', '..', 'downloads')
 
         # Create the download directory if it does not exist yet
@@ -22,11 +22,17 @@ class WebScraper:
         # TODO: configure text file path after setup database
         self.scraped_urls_file = os.path.join(os.path.dirname(__file__), "scraped_urls.txt")
         self.scraped_urls = self._load_scraped_urls()
+
+        # Internal exclusion URL keywords (private)
+        self._exclude_keywords = {"about", "about-us", "contact", "contact-us", "help", "help-centre", "help-center", "career", "careers", "job", "jobs", "privacy", "terms", "policy", "faq", "support", "login", "register", "signup", "sign-up", "subscribe", "unsubscribe", "donate", "shop", "store", "cart", "checkout", "search", "events", "programmes"}
     
     def scrape(self, url, max_pages=1, autodownload=False):
         """
         Scrape content from one or multiple pages starting from the given root URL.
-        Use BFS to follow links to next pages, only enqueuing sub-URLs/subdirectories of the root URL.
+        Use BFS to follow links to next pages.
+        Enqueue Rules:
+        1. only enqueuing sub-URLs/subdirectories of the root URL.
+        2. exclude certain pages based on internally defined keywords (self._exclude_keywords) in the path
 
         :param url: The root URL to start scraping from.
         :param max_pages: Maximum number of pages to scrape (default is 1).
@@ -70,6 +76,8 @@ class WebScraper:
             # Make the next move
             for link in soup.find_all('a', href=True):
                 nei_url = urljoin(current_url, link['href'])
+                nei_url_parsed = urlparse(nei_url)
+
                 # check if a valid url
                 if not self._is_valid_url(nei_url):
                     continue
@@ -77,7 +85,10 @@ class WebScraper:
                 if nei_url in visited:
                     continue
                 # check if a valid sub-URL of the root URL
-                if not self._is_valid_suburl(root_url_parsed, urlparse(nei_url)):
+                if not self._is_valid_suburl(root_url_parsed, nei_url_parsed):
+                    continue
+                # check if the URL should be excluded based on internal keywords
+                if self._should_exclude(nei_url_parsed):
                     continue
 
                 queue.append(nei_url)
@@ -249,5 +260,18 @@ class WebScraper:
             return False
         
         return True
+    
+    def _should_exclude(self, child_url_parsed) -> bool:
+        """
+        Check if a URL should be excluded from scraping based on the first path segment.
+
+        :param child_url_parsed: Parsed result of the child URL connected to the root URL..
+        :return: True if the URL should be excluded, False otherwise.
+
+        Example:
+        https://www.iea.org/about is excluded
+        """
+        path_segments = child_url_parsed.path.strip('/').split('/')
+        return len(path_segments) > 0 and path_segments[0] in self._exclude_keywords
     
     
