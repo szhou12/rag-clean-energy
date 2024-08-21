@@ -1,50 +1,44 @@
-import requests
-from bs4 import BeautifulSoup
-from collections import deque
-from urllib.parse import urljoin, urlparse
+import streamlit as st
+from rag.scrapers.web_scraper import WebScraper
 
-def is_valid_url(url):
-    # Check if the URL is valid
-    parsed = urlparse(url)
-    return bool(parsed.netloc) and bool(parsed.scheme)
+# Set up the Streamlit app
+st.title("Web Scraper Interface")
 
-def bfs_scrape(start_url, max_pages=50):
-    visited = set()
-    queue = deque([start_url])
-    visited.add(start_url)
+# Input fields for user parameters
+url = st.text_input("Enter the URL to start scraping from:")
+max_pages = st.number_input("Maximum number of pages to scrape:", min_value=1, value=1)
+autodownload = st.checkbox("Enable autodownload of attached files", value=False)
 
-    while queue and len(visited) < max_pages:
-        url = queue.popleft()
-        print(f"Scraping: {url}")
+# Initialize WebScraper
+scraper = WebScraper()
 
-        try:
-            response = requests.get(url)
-            soup = BeautifulSoup(response.content, 'html.parser')
-        except requests.RequestException as e:
-            print(f"Failed to scrape {url}: {e}")
-            continue
+# Button to start scraping
+if st.button("Start Scraping"):
+    if url:
+        with st.spinner("Scraping..."):
+            try:
+                # Call the scrape method
+                documents, downloaded_files = scraper.scrape(url, max_pages=max_pages, autodownload=autodownload)
+                
+                # Display results
+                st.success(f"Scraping completed! {len(documents)} pages scraped.")
+                
+                if autodownload:
+                    st.write(f"Files downloaded: {len(downloaded_files)}")
+                    for file in downloaded_files:
+                        st.write(file)
+                        
+                st.write("scraped URL:")
+                for url in scraper.scraped_urls:
+                    st.write(url)
+                # Optionally, display document contents (this could be a lot of text!)
+                st.write("Sample of scraped content:")
+                for i, doc in enumerate(documents[:3]):  # Displaying the first 3 documents
+                    st.write(f"Document {i+1}:")
+                    st.write(doc)
 
-        # Process the content (you can customize this)
-        process_content(url, soup)
-
-        # Find and enqueue all links on the page
-        for a_tag in soup.find_all("a", href=True):
-            next_url = a_tag['href']
-            next_url = urljoin(url, next_url)  # Resolve relative URLs
-            if is_valid_url(next_url) and next_url not in visited:
-                queue.append(next_url)
-                visited.add(next_url)
-
-    print("Scraping completed.")
-
-def process_content(url, soup):
-    # Placeholder function to process the page content
-    # You can extract specific data or save the content as needed
-    print(f"Processing content from {url}")
-    # Example: Save the title of the page
-    title = soup.title.string if soup.title else 'No Title'
-    print(f"Title: {title}")
-
-if __name__ == "__main__":
-    start_url = "https://example.com"  # Replace with the starting URL
-    bfs_scrape(start_url)
+                
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
+    else:
+        st.warning("Please enter a valid URL.")

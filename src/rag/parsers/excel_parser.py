@@ -7,7 +7,7 @@ from langchain.document_loaders import UnstructuredMarkdownLoader
 class ExcelParser(BaseParser):
     def save_file(self, sheet_name, markdown_text):
         """
-        Save the Excel file (per sheet) to the directory = self.dir
+        Save the Excel file (per sheet) in Markdown format to the directory = self.dir
         :return: The file path where the file is saved.
         """
         md_file_path = os.path.join(self.dir, f"{self.file_basename}_{sheet_name}.md")
@@ -19,7 +19,7 @@ class ExcelParser(BaseParser):
         return md_file_path
 
 
-    def load_file(self):
+    def load_and_parse(self):
         """
         Load and parse the Excel file of multiple sheets.
         :return: List of lists of Langchain document objects.

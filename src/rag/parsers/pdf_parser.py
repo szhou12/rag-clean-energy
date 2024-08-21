@@ -19,7 +19,7 @@ class PDFParser(BaseParser):
         return file_path
 
 
-    def load_file(self):
+    def load_and_parse(self):
         """
         Load and parse the PDF file.
         :return: List of lists of Langchain document objects.

@@ -2,11 +2,13 @@
 import os
 from abc import ABC, abstractmethod
 
-class BaseParser:
+# ABC in BaseParser(ABC) defines the BaseParser class as an abstract class
+class BaseParser(ABC):
     def __init__(self, file, dir=None):
         self.file = file
         self.file_basename, self.file_ext = os.path.splitext(self.file.name)
-        self.dir = dir or os.path.join(os.path.dirname(__file__), '..', 'temp')
+        # TODO: AFTER setup databse, use env variable to store the directory path
+        self.dir = dir or os.path.join(os.path.dirname(__file__), '..', '..', '..', 'temp')
 
         # Create the directory if it does not exist yet
         if not os.path.exists(self.dir):
@@ -24,7 +26,7 @@ class BaseParser:
     
     
     @abstractmethod
-    def load_file(self):
+    def load_and_parse(self):
         """
         Load the file. MUST be implemented by subclasses.
         :return: List of lists of Langchain document objects. [List[Document], List[Document], ...]

@@ -31,10 +31,14 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
     - maybe helful: 
         - [SheetSimplify with RAG LLMs](https://github.com/sivadhulipala1999/SheetSimplify_with_RAG/tree/main)
         - [LLMs for Advanced Question-Answering over Tabular/CSV/SQL Data (Building Advanced RAG, Part 2)](https://www.youtube.com/watch?v=L1o1VPVfbb0)
+9. The directory path to store uploaded and downloaded files should configure to environment variable after implementing Database.
 
-
-## 改进的地方
-1. `upload.py`: `save_and_load_file()` 分开成 `save_file()` 和 `load_file()`
+## 开发笔记
+1. RAGAgent: define a class `RAGAgent` to abstract RAG chain
+    - file parser: use **Singleton-Like Approach** to maintain a single instance of each parser type within the RAGAgent class and reuse it for each file upload -> for efficiency.
+2. file parser: define a parser class to parse user-uploaded files
+    - abstarct class: `BaseParser`
+    - subclasses: `PDFParser`, `ExcelParser` extend from `BaseParser`
 
 ## Troubleshooting
 - [ValueError when using UnstructuredMarkdownLoader](https://github.com/langchain-ai/langchain/issues/8556)

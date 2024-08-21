@@ -3,7 +3,7 @@ import os
 from rag.parsers import PDFParser, ExcelParser
 
 class RAGAgent:
-    def __init__(self, vector_store, embedder, scraper=None, parser=None, retriever=None, response_template=None):
+    def __init__(self, vector_store, embedder, scraper=None, retriever=None, response_template=None):
         """
         Initialize the RAGAgent with necessary components.
         
@@ -17,9 +17,10 @@ class RAGAgent:
         self.vector_store = vector_store
         self.embedder = embedder
         self.scraper = scraper
-        self.parser = parser
+        # self.parser = parser
         self.retriever = retriever
         self.response_template = response_template
+        self._file_parsers = {}  # Dictionary to store parser instances
 
     def process_url(self, url):
         """
@@ -42,31 +43,25 @@ class RAGAgent:
 
     def process_file(self, file):
         """
-        Process an uploaded file: parse file content (i.e. conert to List[List[Document]]) (embed, and save to vector store)
+        Process an uploaded file: parse file content (i.e. conert to List[List[Document]])
         
         :param file: The uploaded file. Currently support: PDF, Excel (multiple sheets)
         :return: None
         """
-        file_ext = os.path.splitext(file.name)[1].lower()
-        # Step 1: Parse content from the file
-        if file_ext == '.pdf':
-            parser = PDFParser(file)
-        elif file_ext in ['.xls', '.xlsx']:
-            parser = ExcelParser(file)
-        else:
-            raise ValueError(f"Unsupported file type: {file_ext}")
+        parser = self._select_parser(file)
+        # doc_list = [ List[Document], List[Document], ... ]
+        doc_list = parser.load_and_parse()
+
         
-        # content = [ List[Document], List[Document], ... ]
-        content = parser.load_file()
-        
+        ## Considering moving step 2-4 to separate methods
         # Step 2: Split content into manageable chunks
-        chunks = self.split_text(content)
+        # chunks = self.split_text(content)
         
         # Step 3: Embed the chunks
-        embeddings = self.embedder.embed(chunks)
+        # embeddings = self.embedder.embed(chunks)
         
         # Step 4: Save embeddings and chunks to the vector store
-        self.vector_store.save(embeddings, chunks)
+        # self.vector_store.save(embeddings, chunks)
 
     def split_text(self, text):
         """
@@ -102,3 +97,25 @@ class RAGAgent:
         """
         # Implement your response formatting logic here using the response_template
         pass
+
+    def _select_parser(self, file):
+        """
+        Determine the type of file and return the appropriate parser.
+        Reuse the parser instance if it already exists.
+        Return corresponding Parser object based on the file extension.
+        """
+        file_ext = os.path.splitext(file.name)[1].lower()
+
+        if file_ext not in self._file_parsers:
+            # Create a new parser if it doesn't exist in the dictionary
+            if file_ext == '.pdf':
+                self._file_parsers[file_ext] = PDFParser(file)
+            elif file_ext in ['.xls', '.xlsx']:
+                self._file_parsers[file_ext] = ExcelParser(file)
+            else:
+                raise ValueError(f"Unsupported file type: {file_ext}")
+        else:
+            # Update the existing parser with the new file
+            self._file_parsers[file_ext].file = file
+
+        return self._file_parsers[file_ext]
