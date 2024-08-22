@@ -68,12 +68,12 @@ class RAGAgent:
         # Step 4: Save embeddings and chunks to the vector store
         # self.vector_store.save(embeddings, chunks)
 
-    def split_text(self, text):
+    def split_text(self, docs):
         """
-        Split the given text into smaller chunks suitable for embedding.
+        Split the each List[Document] in docs into smaller chunks suitable for embedding.
         
-        :param text: The text to be split
-        :return: List of text chunks
+        :param docs: [ List[Document], List[Document], ...]
+        :return: [ List[Document], List[Document], ...]
         """
         # Add additional separators customizing for Chinese texts
         # Ref: https://python.langchain.com/v0.1/docs/modules/data_connection/document_transformers/recursive_text_splitter/
@@ -96,7 +96,8 @@ class RAGAgent:
             chunk_overlap=200,
             length_function=len
         )
-        pass
+        doc_chunks_list = [text_splitter.split_documents(doc) for doc in docs]
+        return doc_chunks_list
 
     def handle_query(self, query):
         """
