@@ -1,9 +1,12 @@
 # rag/agent.py
 import os
 from rag.parsers import PDFParser, ExcelParser
+from rag.scrapers import WebScraper
+
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 class RAGAgent:
-    def __init__(self, vector_store, embedder, scraper=None, retriever=None, response_template=None):
+    def __init__(self, vector_store, embedder, retriever=None, response_template=None):
         """
         Initialize the RAGAgent with necessary components.
         
@@ -14,13 +17,14 @@ class RAGAgent:
         :param retriever: Retriever utility to fetch relevant information from the vector store
         :param response_template: Predefined template for formatting responses
         """
+        self.scraper = WebScraper()
+        self._file_parsers = {}  # {'.pdf': PDFParser(), '.xls': ExcelParser(), '.xlsx': ExcelParser(), ...}
+
         self.vector_store = vector_store
         self.embedder = embedder
-        self.scraper = scraper
-        # self.parser = parser
         self.retriever = retriever
         self.response_template = response_template
-        self._file_parsers = {}  # Dictionary to store parser instances
+        
 
     def process_url(self, url):
         """
@@ -30,16 +34,18 @@ class RAGAgent:
         :return: None
         """
         # Step 1: Scrape content from the URL
-        content = self.scraper.scrape(url)
+        docs, downloaded_files = self.scraper.scrape(url)
         
         # Step 2: Split content into manageable chunks
-        chunks = self.split_text(content)
+        chunks = self.split_text(docs)
         
         # Step 3: Embed the chunks
         embeddings = self.embedder.embed(chunks)
         
         # Step 4: Save embeddings and chunks to the vector store
         self.vector_store.save(embeddings, chunks)
+
+        # Step 5: parse downloaded files
 
     def process_file(self, file):
         """
@@ -49,8 +55,7 @@ class RAGAgent:
         :return: None
         """
         parser = self._select_parser(file)
-        # doc_list = [ List[Document], List[Document], ... ]
-        doc_list = parser.load_and_parse()
+        docs = parser.load_and_parse()
 
         
         ## Considering moving step 2-4 to separate methods
@@ -70,7 +75,27 @@ class RAGAgent:
         :param text: The text to be split
         :return: List of text chunks
         """
-        # Implement your text splitting logic here
+        # Add additional separators customizing for Chinese texts
+        # Ref: https://python.langchain.com/v0.1/docs/modules/data_connection/document_transformers/recursive_text_splitter/
+        text_splitter = RecursiveCharacterTextSplitter(
+            separators=[
+                "\n\n",
+                "\n",
+                " ",
+                ".",
+                ",",
+                "\u200b",  # Zero-width space
+                "\uff0c",  # Fullwidth comma
+                "\u3001",  # Ideographic comma
+                "\uff0e",  # Fullwidth full stop
+                "\u3002",  # Ideographic full stop
+                "",
+            ],
+            # Existing args
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len
+        )
         pass
 
     def handle_query(self, query):
@@ -107,7 +132,7 @@ class RAGAgent:
         file_ext = os.path.splitext(file.name)[1].lower()
 
         if file_ext not in self._file_parsers:
-            # Create a new parser if it doesn't exist in the dictionary
+            # Instantiate a new parser object if it doesn't exist in the dictionary
             if file_ext == '.pdf':
                 self._file_parsers[file_ext] = PDFParser(file)
             elif file_ext in ['.xls', '.xlsx']:

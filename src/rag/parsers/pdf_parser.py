@@ -9,6 +9,10 @@ class PDFParser(BaseParser):
         Save the PDF file to the directory = self.dir
         :return: The file path where the file is saved.
         """
+        # Create the directory if it does not exist yet
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
+
         file_path = os.path.join(self.dir, self.file.name)
         
         if not os.path.exists(file_path):
@@ -27,4 +31,5 @@ class PDFParser(BaseParser):
         file_path = self.save_file()
         loader = PyMuPDFLoader(file_path)
         docs = [loader.load()]
+        # docs = [ List[Document], List[Document], ...]
         return docs

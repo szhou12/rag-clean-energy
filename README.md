@@ -42,8 +42,40 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 3. TODO: webscraper class
     1. only enqueue subdirectories given a root URL :white_check_mark:
     2. filter out irrelevant URLs: e.g. "About", "Contact" :white_check_mark:
-    3. parse downloaded files
-4. TODO: [update Langchain](https://python.langchain.com/v0.2/docs/versions/v0_2/)
+    3. how to parse downloaded files? Logic: 每一次爬网页的时候，现将附件下载到 downloads 文件夹，在未来的某一时刻，再将这些文件解析，并将完成解析的文件从 downloads 文件夹移到 temp 文件夹。为避免重复下载已解析过的附件文件，每新一轮触发爬网页时，先将temp中所有文件名preload到一个set中？
+        - **连接数据库后需要更改: 1. 未解析文件的暂存路径，2. 调取并预载已解析文件Metadata**
+    4. 目前所有爬过的网页的网址都储存在text文件里("scraped_urls.txt")，**连接数据库后需要更改: 1. 增加一个method来准备metadata, 2. metadata的存储路径**
+4. **TODO** [update Langchain](https://python.langchain.com/v0.2/docs/versions/v0_2/)
+5. **TODO** database迁移的处理办法:
+    1. files: 把所有需要解析的文件定义为两大类：1. 已解析 2. 未解析 (包括用户上传+网页上抓取)。已解析文件：原始文件不再储存到database, 只存储它的metadata。未解析文件：开辟一个"缓存“空间，暂存这些原始文件，等待解析，解析后，将原始文件从缓存中移除，metadata写入database 
+    2. web pages: 将爬过并已经解析的网页的metadata (e.g. URL) 写入database.
+    3. Database for metadata: 似乎使用 Relational DB (MySQL) 比较合适？
+        - Example Schema : Files Metadata Table
+        ```
+        CREATE TABLE parsed_files (
+            id SERIAL PRIMARY KEY,
+            file_name VARCHAR(255),
+            file_checksum CHAR(64),  -- SHA-256 or similar checksum
+            upload_date TIMESTAMP,
+            parsed_date TIMESTAMP,
+            vector_store_id VARCHAR(255)  -- Reference to the vector data in the vector store
+        );
+        ```
+        - Example Schema : Web Pages Metadata Table
+        ```
+        CREATE TABLE parsed_web_pages (
+            id SERIAL PRIMARY KEY,
+            url TEXT,
+            url_checksum CHAR(64),  -- SHA-256 or similar checksum of the URL
+            scrape_date TIMESTAMP,
+            parsed_date TIMESTAMP,
+            vector_store_id VARCHAR(255)  -- Reference to the vector data in the vector store
+        );
+        ```
+6. **TODO** 缓存空间Buffer: 用来暂存未解析的文件。
+    - 可用技术: AWS S3 (simple storage service), Alibaba Cloud OSS (Object Storage Service)
+7. **TODO** Cloud-based deployment
+    - 下面以AWS为例，阐述流程：AWS EC2是server/VM，相当于租用一台电脑，把整个application部署在这台电脑里，用户通过网址来访问使用。AWS S3是存储服务，在该应用里作为“缓存”暂时存储等待被解析的文件。
 
 ## Troubleshooting
 - [ValueError when using UnstructuredMarkdownLoader](https://github.com/langchain-ai/langchain/issues/8556)

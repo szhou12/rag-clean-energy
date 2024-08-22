@@ -9,10 +9,6 @@ class BaseParser(ABC):
         self.file_basename, self.file_ext = os.path.splitext(self.file.name)
         # TODO: AFTER setup databse, use env variable to store the directory path
         self.dir = dir or os.path.join(os.path.dirname(__file__), '..', '..', '..', 'temp')
-
-        # Create the directory if it does not exist yet
-        if not os.path.exists(self.dir):
-            os.makedirs(self.dir)
     
     @abstractmethod
     def save_file(self):

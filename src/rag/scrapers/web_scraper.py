@@ -37,10 +37,10 @@ class WebScraper:
         :param url: The root URL to start scraping from.
         :param max_pages: Maximum number of pages to scrape (default is 1).
         :param autodownload: If True, automatically download files attached to each web page.
-        :return: List of documents loaded from the URLs, List of newly downloaded file paths in current scraping session
+        :return: List of lists of Langchain document objects loaded from the URLs, List of newly downloaded file paths in current scraping session
         """
         visited = set() # visited url in current round of scraping session
-        documents = []
+        docs = []
         pages_scraped = 0
         newly_downloaded_files = []  # Store newly downloaded files in current round of scraping session
 
@@ -58,7 +58,7 @@ class WebScraper:
             # Update
             doc = self._langchain_load_url(current_url) # doc := List[Document]. one doc = one whole web page content without split
             if doc:
-                documents.append(doc) # documents = [ List[Document], List[Document], ...]
+                docs.append(doc)
                 pages_scraped += 1
 
             # Handle request errors
@@ -96,8 +96,9 @@ class WebScraper:
        
         # Write all scraped URLs into the text file before returning results
         self._update_scraped_urls_file()
-       
-        return documents, newly_downloaded_files
+
+        # docs = [ List[Document], List[Document], ...]
+        return docs, newly_downloaded_files
                     
 
     def _langchain_load_url(self, url):

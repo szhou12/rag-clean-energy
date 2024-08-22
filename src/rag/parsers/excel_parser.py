@@ -10,6 +10,10 @@ class ExcelParser(BaseParser):
         Save the Excel file (per sheet) in Markdown format to the directory = self.dir
         :return: The file path where the file is saved.
         """
+        # Create the directory if it does not exist yet
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
+            
         md_file_path = os.path.join(self.dir, f"{self.file_basename}_{sheet_name}.md")
         if not os.path.exists(md_file_path):
             print(f'Saving {sheet_name} sheet as md file to temp directory')
@@ -40,6 +44,7 @@ class ExcelParser(BaseParser):
             loader = UnstructuredMarkdownLoader(file_path, mode="elements")
             docs.append(loader.load())
         
+        # docs = [ List[Document], List[Document], ...]
         return docs
     
     def clean_df(self, df):
