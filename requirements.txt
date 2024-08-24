@@ -10,3 +10,4 @@ pymupdf
 unstructured
 openpyxl
 markdown
+sentence_transformers

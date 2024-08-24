@@ -2,26 +2,37 @@
 import os
 from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
+from rag.embedders import OpenAIEmbedding, HuggingFaceBgeEmbedding
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 class RAGAgent:
-    def __init__(self, vector_store, embedder, retriever=None, response_template=None):
+    def __init__(self, vector_store, retriever=None, response_template=None):
         """
         Initialize the RAGAgent with necessary components.
         
-        :param vector_store: Instance of a vector store (e.g., Chroma)
-        :param embedder: Embedding model to convert texts to embeddings
         :param scraper: Web scraper utility for scraping contents from URLs
         :param parser: File parser utility for parsing uploaded files
+        :param embedder: Embedding model to convert texts to embeddings (vectors)
+        :param vector_store: Instance of a vector store (e.g., Chroma)
         :param retriever: Retriever utility to fetch relevant information from the vector store
         :param response_template: Predefined template for formatting responses
         """
         self.scraper = WebScraper()
+        
         self._file_parsers = {}  # {'.pdf': PDFParser(), '.xls': ExcelParser(), '.xlsx': ExcelParser(), ...}
+        
+        # TODO: change embedder_type='openai' to 'bge' later when Chinese embedding is supported
+        try:
+            self.embedder = self._init_embedder(embedder_type='openai')
+        except ValueError as e:
+            print(f"Initialization Error for Embedding Model: {e}")
+            self.embedder = None
+        except Exception as e:
+            print(f"Unexpected Error in getting Embedding Model: {e}")
+            self.embedder = None
 
         self.vector_store = vector_store
-        self.embedder = embedder
         self.retriever = retriever
         self.response_template = response_template
         
@@ -145,3 +156,28 @@ class RAGAgent:
             self._file_parsers[file_ext].file = file
 
         return self._file_parsers[file_ext]
+    
+    def _init_embedder(self, embedder_type):
+        """
+        Initialize the embedding model based on the provided type.
+        
+        :param embedder_type: <str> Type of embedding model to use ("openai" or "bge")
+        :return: The model instance from the embedding model
+        :raises ValueError: If the embedder type is not supported or if the API key is missing.
+        """
+        embedder_type = embedder_type.lower()
+
+        if embedder_type == "openai":
+            try:
+                openai_embedding = OpenAIEmbedding()
+                return openai_embedding.model 
+            except ValueError as e:
+                raise ValueError(f"Failed to initialize OpenAI Embeddings: {e}")
+        elif embedder_type == "bge":
+            try:
+                huggingface_embedding = HuggingFaceBgeEmbedding()
+                return huggingface_embedding.model
+            except Exception as e:
+                raise ValueError(f"Failed to initialize Hugging Face BGE Embeddings: {e}")
+        else:
+            raise ValueError(f"Unsupported embedder type: {embedder_type}")

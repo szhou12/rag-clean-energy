@@ -83,6 +83,7 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 ## Resources
 ### Langchain
 - [langchain_core](https://api.python.langchain.com/en/latest/core_api_reference.html)
+    - When you instantiate OpenAI-related models in Langchain, you don't need to explicitly pass in OpenAI API key as arguemnt. This is because Langchain has a built-in function `get_from_dict_or_env()` (from `langchain_core.utils`) that will look for the API key in your environment variables. Therefore, if you define the API key in `.env` file, you only need to use `load_dotenv()` to load the API key into the environment variables. Langchain will help you locate the API key content when you instantiate an OpenAI-related model.
 - [langchain_openai ChatOpenAI](https://api.python.langchain.com/en/latest/chat_models/langchain_openai.chat_models.base.ChatOpenAI.html)
 - [langchain Chroma](https://python.langchain.com/v0.2/docs/integrations/vectorstores/chroma/)
 - [Streaming](https://python.langchain.com/v0.1/docs/expression_language/streaming/)
@@ -106,6 +107,10 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 - [零一万物Repo](https://github.com/01-ai/Yi?tab=readme-ov-file)
 - [使用 Dify、Meilisearch、零一万物模型实现最简单的 RAG 应用（三）：AI 电影推荐](https://mp.weixin.qq.com/s/Ri2ap9_5EMzdfiBhSSL_MQ)
 - [YiLLM Langchain](https://api.python.langchain.com/en/latest/llms/langchain_community.llms.yi.YiLLM.html#langchain_community.llms.yi.YiLLM)
+
+### Embedding Model
+- [Huggingface | BAAI](https://huggingface.co/BAAI)
+- [Langchain BGE Embedding](https://python.langchain.com/v0.2/docs/integrations/text_embedding/bge_huggingface/)
 
 ### AliYun
 - [使用docker和streamlit阿里云服务器部署简单的演示网页](https://jackiexiao.github.io/blog/%E6%8A%80%E6%9C%AF/%E4%BD%BF%E7%94%A8docker%E5%92%8Cstreamlit%E9%98%BF%E9%87%8C%E4%BA%91%E6%9C%8D%E5%8A%A1%E5%99%A8%E9%83%A8%E7%BD%B2%E7%AE%80%E5%8D%95%E7%9A%84%E6%BC%94%E7%A4%BA%E7%BD%91%E9%A1%B5/)
