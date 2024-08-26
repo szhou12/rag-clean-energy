@@ -26,10 +26,10 @@ class PDFParser(BaseParser):
     def load_and_parse(self):
         """
         Load and parse the PDF file.
-        :return: List of lists of Langchain document objects.
+        :return: List of Langchain Document objects.
         """
         file_path = self.save_file()
         loader = PyMuPDFLoader(file_path)
-        docs = [loader.load()]
-        # docs = [ List[Document], List[Document], ...]
+        docs = loader.load()
+        # docs = List[Document]
         return docs

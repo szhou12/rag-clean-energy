@@ -26,7 +26,7 @@ class ExcelParser(BaseParser):
     def load_and_parse(self):
         """
         Load and parse the Excel file of multiple sheets.
-        :return: List of lists of Langchain document objects.
+        :return: List of Langchain Document objects.
         """
         docs = []
         excel_data = pd.read_excel(self.file, sheet_name=None)  # Read all sheets
@@ -42,9 +42,9 @@ class ExcelParser(BaseParser):
             file_path = self.save_file(sheet_name, markdown_text)
 
             loader = UnstructuredMarkdownLoader(file_path, mode="elements")
-            docs.append(loader.load())
+            docs.extend(loader.load())
         
-        # docs = [ List[Document], List[Document], ...]
+        # docs = List[Document]
         return docs
     
     def clean_df(self, df):

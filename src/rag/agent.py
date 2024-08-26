@@ -36,7 +36,7 @@ class RAGAgent:
         self.vector_store = ChromaVectorStore(
             collection_name="subject_to_change",
             embedding_function=self.embedder,
-            persist_directory=None,
+            persist_db_name=None,
         )
 
 
@@ -58,10 +58,10 @@ class RAGAgent:
         chunks = self.split_text(docs)
         
         # Step 3: Embed the chunks
-        embeddings = self.embedder.embed(chunks)
+        # embeddings = self.embedder.embed(chunks)
         
         # Step 4: Save embeddings and chunks to the vector store
-        self.vector_store.save(embeddings, chunks)
+        # self.vector_store.save(embeddings, chunks)
 
         # Step 5: parse downloaded files
 
@@ -72,8 +72,12 @@ class RAGAgent:
         :param file: The uploaded file. Currently support: PDF, Excel (multiple sheets)
         :return: None
         """
+        # Step 1: Select file parser based on the file extension, load and parse the file
         parser = self._select_parser(file)
         docs = parser.load_and_parse()
+
+        # Step 2: Split content into manageable chunks
+        chunks = self.split_text(docs)
 
         
         ## Considering moving step 2-4 to separate methods
@@ -88,10 +92,10 @@ class RAGAgent:
 
     def split_text(self, docs):
         """
-        Split the each List[Document] in docs into smaller chunks suitable for embedding.
+        Split the docs = List[Document] into smaller chunks suitable for embedding.
         
-        :param docs: [ List[Document], List[Document], ...]
-        :return: [ List[Document], List[Document], ...]
+        :param docs: List[Document]
+        :return: List[Document]
         """
         # Add additional separators customizing for Chinese texts
         # Ref: https://python.langchain.com/v0.1/docs/modules/data_connection/document_transformers/recursive_text_splitter/
@@ -114,8 +118,8 @@ class RAGAgent:
             chunk_overlap=200,
             length_function=len
         )
-        doc_chunks_list = [text_splitter.split_documents(doc) for doc in docs]
-        return doc_chunks_list
+        doc_chunks = text_splitter.split_documents(docs)
+        return doc_chunks
 
     def handle_query(self, query):
         """
