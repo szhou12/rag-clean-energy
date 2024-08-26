@@ -12,7 +12,7 @@ class ExcelParser(BaseParser):
         """
         # Create the directory if it does not exist yet
         if not os.path.exists(self.dir):
-            os.makedirs(self.dir)
+            os.makedirs(self.dir, exist_ok=True)
             
         md_file_path = os.path.join(self.dir, f"{self.file_basename}_{sheet_name}.md")
         if not os.path.exists(md_file_path):

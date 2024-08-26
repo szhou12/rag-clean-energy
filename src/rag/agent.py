@@ -3,17 +3,18 @@ import os
 from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
 from rag.embedders import OpenAIEmbedding, HuggingFaceBgeEmbedding
+from rag.vectore_stores import ChromaVectorStore
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 class RAGAgent:
-    def __init__(self, vector_store, retriever=None, response_template=None):
+    def __init__(self, retriever=None, response_template=None):
         """
         Initialize the RAGAgent with necessary components.
         
-        :param scraper: Web scraper utility for scraping contents from URLs
-        :param parser: File parser utility for parsing uploaded files
-        :param embedder: Embedding model to convert texts to embeddings (vectors)
+        :attr scraper: Web scraper utility for scraping contents from URLs
+        :attr parser: File parser utility for parsing uploaded files
+        :attr embedder: Embedding model to convert texts to embeddings (vectors)
         :param vector_store: Instance of a vector store (e.g., Chroma)
         :param retriever: Retriever utility to fetch relevant information from the vector store
         :param response_template: Predefined template for formatting responses
@@ -32,7 +33,13 @@ class RAGAgent:
             print(f"Unexpected Error in getting Embedding Model: {e}")
             self.embedder = None
 
-        self.vector_store = vector_store
+        self.vector_store = ChromaVectorStore(
+            collection_name="subject_to_change",
+            embedding_function=self.embedder,
+            persist_directory=None,
+        )
+
+
         self.retriever = retriever
         self.response_template = response_template
         
@@ -181,3 +188,4 @@ class RAGAgent:
                 raise ValueError(f"Failed to initialize Hugging Face BGE Embeddings: {e}")
         else:
             raise ValueError(f"Unsupported embedder type: {embedder_type}")
+

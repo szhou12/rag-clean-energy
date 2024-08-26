@@ -8,7 +8,7 @@ class BaseParser(ABC):
         self.file = file
         self.file_basename, self.file_ext = os.path.splitext(self.file.name)
         # TODO: AFTER setup databse, use env variable to store the directory path
-        self.dir = dir or os.path.join(os.path.dirname(__file__), '..', '..', '..', 'temp')
+        self.dir = dir or os.path.join(os.getcwd(), 'temp')
     
     @abstractmethod
     def save_file(self):

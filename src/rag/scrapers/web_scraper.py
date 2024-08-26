@@ -9,7 +9,7 @@ class WebScraper:
     def __init__(self, dir=None):
         # TODO: AFTER setup databse, use env variable to store the directory path
         # self.dir stores auto-downloaded files when scraping
-        self.dir = dir or os.path.join(os.path.dirname(__file__), '..', '..', '..', 'downloads')
+        self.dir = dir or os.path.join(os.getcwd(), 'downloads')
 
         # Create the download directory if it does not exist yet
         if not os.path.exists(self.dir):

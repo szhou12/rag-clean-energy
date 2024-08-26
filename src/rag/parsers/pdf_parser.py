@@ -11,7 +11,7 @@ class PDFParser(BaseParser):
         """
         # Create the directory if it does not exist yet
         if not os.path.exists(self.dir):
-            os.makedirs(self.dir)
+            os.makedirs(self.dir, exist_ok=True)
 
         file_path = os.path.join(self.dir, self.file.name)
         
