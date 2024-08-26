@@ -82,6 +82,11 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 
 ## Resources
 ### Langchain
+1. [Document object](https://python.langchain.com/v0.2/docs/concepts/#documents): A Document object in LangChain contains information about some data. It has 2 attributes:
+    1. `page_content: str`: The content of this document. Currently is only a string.
+    2. `metadata: dict`: Arbitrary metadata associated with this document. Can track the document id, file name, etc. e.g. `metadata={'source': 'https://www.iea.org/energy-system/fossil-fuels', 'title': 'Fossil Fuels - Energy System - IEA', 'description': '', 'language': 'en-GB'}`
+
+
 - [langchain_core](https://api.python.langchain.com/en/latest/core_api_reference.html)
     - When you instantiate OpenAI-related models in Langchain, you don't need to explicitly pass in OpenAI API key as arguemnt. This is because Langchain has a built-in function `get_from_dict_or_env()` (from `langchain_core.utils`) that will look for the API key in your environment variables. Therefore, if you define the API key in `.env` file, you only need to use `load_dotenv()` to load the API key into the environment variables. Langchain will help you locate the API key content when you instantiate an OpenAI-related model.
 - [langchain_openai ChatOpenAI](https://api.python.langchain.com/en/latest/chat_models/langchain_openai.chat_models.base.ChatOpenAI.html)

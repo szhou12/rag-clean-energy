@@ -6,9 +6,13 @@ from rag.embedders import OpenAIEmbedding, HuggingFaceBgeEmbedding
 from rag.vectore_stores import ChromaVectorStore
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_openai import ChatOpenAI
 
 class RAGAgent:
-    def __init__(self, retriever=None, response_template=None):
+    def __init__(self, vector_db=None, retriever=None, response_template=None):
         """
         Initialize the RAGAgent with necessary components.
         
@@ -36,7 +40,7 @@ class RAGAgent:
         self.vector_store = ChromaVectorStore(
             collection_name="subject_to_change",
             embedding_function=self.embedder,
-            persist_db_name=None,
+            persist_db_name=vector_db,
         )
 
 
@@ -57,8 +61,8 @@ class RAGAgent:
         # Step 2: Split content into manageable chunks
         chunks = self.split_text(docs)
         
-        # Step 3: Embed the chunks
-        # embeddings = self.embedder.embed(chunks)
+        # Step 3: Embed each chunk (Document) and save to the vector store
+        chunk_ids = self.vector_store.add_documents(chunks)
         
         # Step 4: Save embeddings and chunks to the vector store
         # self.vector_store.save(embeddings, chunks)
@@ -79,20 +83,15 @@ class RAGAgent:
         # Step 2: Split content into manageable chunks
         chunks = self.split_text(docs)
 
-        
-        ## Considering moving step 2-4 to separate methods
-        # Step 2: Split content into manageable chunks
-        # chunks = self.split_text(content)
-        
-        # Step 3: Embed the chunks
-        # embeddings = self.embedder.embed(chunks)
+        # Step 3: Embed each chunk (Document) and save to the vector store
+        chunk_ids = self.vector_store.add_documents(chunks)
         
         # Step 4: Save embeddings and chunks to the vector store
         # self.vector_store.save(embeddings, chunks)
 
     def split_text(self, docs):
         """
-        Split the docs = List[Document] into smaller chunks suitable for embedding.
+        Split the docs (List[Document]) into smaller chunks suitable for embedding.
         
         :param docs: List[Document]
         :return: List[Document]
@@ -120,7 +119,42 @@ class RAGAgent:
         )
         doc_chunks = text_splitter.split_documents(docs)
         return doc_chunks
+    
 
+    def get_context_retriever_chain(self):
+        """
+        Set up and return the retriever chain using the initialized vector store, LLM, and a predefined prompt.
+        
+        :return: Retriever chain object
+        """
+        if not self.vector_store:
+            raise ValueError("Vector store is not initialized. Cannot create retriever chain.")
+        
+        # TODO: define it as attribute or not????
+        llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            temperature=0,
+        )
+        
+        retriever = self.vector_store.as_retriever()
+
+        contextualize_q_system_prompt = (
+            "Given a chat history and the latest user question "
+            "which might reference context in the chat history, "
+            "formulate a standalone question which can be understood "
+            "without the chat history. Do NOT answer the question, "
+            "just reformulate it if needed and otherwise return it as is."
+        )
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", contextualize_q_system_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"),
+        ])
+
+        retriever_chain = create_history_aware_retriever(llm, retriever, prompt)
+        return retriever_chain
+    
     def handle_query(self, query):
         """
         Handle a user query by retrieving relevant information and formatting a response.
