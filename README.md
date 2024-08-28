@@ -3,7 +3,7 @@
 ## Dependencies
 ### Conda Environment
 ```linux
-conda create --name rag-energy python=3.10
+conda create --name rag-clean-energy python=3.10
 ```
 
 ### Python Packages

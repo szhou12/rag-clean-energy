@@ -12,15 +12,17 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
 class RAGAgent:
-    def __init__(self, vector_db=None, retriever=None, response_template=None):
+    def __init__(self, llm="gpt-4o-mini", embedder='openai', vector_db=None, response_template=None):
         """
         Initialize the RAGAgent with necessary components.
         
         :attr scraper: Web scraper utility for scraping contents from URLs
         :attr parser: File parser utility for parsing uploaded files
         :attr embedder: Embedding model to convert texts to embeddings (vectors)
-        :param vector_store: Instance of a vector store (e.g., Chroma)
-        :param retriever: Retriever utility to fetch relevant information from the vector store
+
+        :param llm: <str> Name of the language model (e.g., "gpt-4o-mini")
+        :param embedder: <str> Name of embedding model
+        :param vector_db: <str> Name of a vector store (e.g., Chroma). Used to constrcut persistent directory
         :param response_template: Predefined template for formatting responses
         """
         self.scraper = WebScraper()
@@ -29,7 +31,7 @@ class RAGAgent:
         
         # TODO: change embedder_type='openai' to 'bge' later when Chinese embedding is supported
         try:
-            self.embedder = self._init_embedder(embedder_type='openai')
+            self.embedder = self._init_embedder(embedder_type=embedder)
         except ValueError as e:
             print(f"Initialization Error for Embedding Model: {e}")
             self.embedder = None
@@ -38,17 +40,30 @@ class RAGAgent:
             self.embedder = None
 
         self.vector_store = ChromaVectorStore(
-            collection_name="subject_to_change",
-            embedding_function=self.embedder,
+            collection_name="default",
+            embedding_model=self.embedder,
             persist_db_name=vector_db,
         )
 
+        # TODO: modify the way to write it later
+        self.llm = ChatOpenAI(
+            model=llm,
+            temperature=0,
+        )
 
-        self.retriever = retriever
-        self.response_template = response_template
+        if response_template:
+            self.response_template = response_template
+        else:
+            self.response_template = """
+                Your answer should be in the format of a report that follows the structure: 
+                <Title>: give a proper title
+                <Summary>: key points that should be highlighted
+                <Details>: provide details to each key point and enrich the details with numbers and statistics
+                <Conclusion>: give a proper conclusion
+                """
         
 
-    def process_url(self, url):
+    def process_url(self, url, max_pages=1, autodownload=False):
         """
         Process a given URL: scrape content, embed, and save to vector store.
         
@@ -56,7 +71,7 @@ class RAGAgent:
         :return: None
         """
         # Step 1: Scrape content from the URL
-        docs, downloaded_files = self.scraper.scrape(url)
+        docs, downloaded_files = self.scraper.scrape(url, max_pages, autodownload)
         
         # Step 2: Split content into manageable chunks
         chunks = self.split_text(docs)
@@ -71,7 +86,7 @@ class RAGAgent:
 
     def process_file(self, file):
         """
-        Process an uploaded file: parse file content (i.e. conert to List[List[Document]])
+        Process an uploaded file: parse file content, embed, and save to vector store.
         
         :param file: The uploaded file. Currently support: PDF, Excel (multiple sheets)
         :return: None
@@ -120,23 +135,45 @@ class RAGAgent:
         doc_chunks = text_splitter.split_documents(docs)
         return doc_chunks
     
-
-    def get_context_retriever_chain(self):
+    def handle_query(self, user_query, chat_history):
         """
-        Set up and return the retriever chain using the initialized vector store, LLM, and a predefined prompt.
+        Handle a user query by retrieving relevant information and formatting a contextual response by referring to the chat history.
+        Workflow:
+            user query -> _retrieve_contextual_info() retrieve relevant docs -> _format_response() format response
         
-        :return: Retriever chain object
+        :param query: The user's query
+        :param chat_history: The chat history
+        :return: Formatted response to the query
+        """
+        # Step 1: Retrieve relevant chunks from the vector store
+        relevant_chunks = self._retrieve_contextual_info()
+        
+        # Step 2: Format the response using the predefined template
+        retrieval_chain = self._format_response(relevant_chunks)
+
+        # Step 3: Stream the response
+        answer_only_retrieval_chain = retrieval_chain.pick("answer") # .pick() keeps only key="answer" in the response
+        response = answer_only_retrieval_chain.stream({
+            "chat_history": chat_history,
+            "input": user_query
+        })
+
+        # return response["answer"] # use this if use retrieval_chain.invoke()
+        return response
+    
+    def _retrieve_contextual_info(self):
+        """
+        Retrieve relevant information from the vector store based on the chat history and the user's query.
+        1. This function first looks at the chat history and the current user's question.
+        2. It then uses the LLM to reformulate the question if necessary. e.g., user query "Please explain green hydrogen to me" might be transformed to "What is green hydrogen and how does it relate to renewable energy sources?" This reformulation takes into account the previous conversation about renewable energy sources.
+        3. The reformulated question is then used to retrieve relevant documents from the vector store. In our example, it retrieved three key pieces of information about green hydrogen.
+
+        :return: Runnable[Any, List[Document]] - An LCEL Runnable. The Runnable output is a list of Documents. For simple understanding, returned is a list of relevant documents retrieved from the vector store
         """
         if not self.vector_store:
             raise ValueError("Vector store is not initialized. Cannot create retriever chain.")
         
-        # TODO: define it as attribute or not????
-        llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0,
-        )
-        
-        retriever = self.vector_store.as_retriever()
+        vs_retriever = self.vector_store.as_retriever()
 
         contextualize_q_system_prompt = (
             "Given a chat history and the latest user question "
@@ -152,33 +189,29 @@ class RAGAgent:
             ("human", "{input}"),
         ])
 
-        retriever_chain = create_history_aware_retriever(llm, retriever, prompt)
-        return retriever_chain
+        retrieved_docs = create_history_aware_retriever(self.llm, vs_retriever, prompt)
+        return retrieved_docs
     
-    def handle_query(self, query):
+    def _format_response(self, retrieved_docs):
         """
-        Handle a user query by retrieving relevant information and formatting a response.
-        
-        :param query: The user's query
-        :return: Formatted response to the query
-        """
-        # Step 1: Retrieve relevant chunks from the vector store
-        relevant_chunks = self.retriever.retrieve(query)
-        
-        # Step 2: Format the response using the predefined template
-        response = self.format_response(relevant_chunks)
-        
-        return response
+        Format the retrieved chunks into a coherent response based on a response template.
+        1. This function takes the retrieved documents (retrieved_docs), the current user's query, and the chat history.
+        2. It then uses another LLM call to generate a structured response based on the provided template.
+        3. The LLM combines the retrieved information with its own knowledge to create a comprehensive, structured response to user's query.
+        4. The final response will be in the format of the response template provided during initialization.
 
-    def format_response(self, relevant_chunks):
+        :param retrieved_docs: List of text chunks retrieved from the vector store
+        :return: An LCEL Runnable. The Runnable return is a dictionary containing at the very least a context and answer key.
         """
-        Format the retrieved chunks into a coherent response based on a template.
-        
-        :param relevant_chunks: List of text chunks retrieved from the vector store
-        :return: Formatted response string
-        """
-        # Implement your response formatting logic here using the response_template
-        pass
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n\n{context}"), # context = retrieved_docs
+            ("system", self.response_template),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"), # input = user query
+        ])
+        stuff_documents_chain = create_stuff_documents_chain(self.llm, prompt)
+        retrieval_chain = create_retrieval_chain(retrieved_docs, stuff_documents_chain)
+        return retrieval_chain
 
     def _select_parser(self, file):
         """

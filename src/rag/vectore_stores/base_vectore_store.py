@@ -12,7 +12,7 @@ class VectorStore(ABC):
         self.embedding_model = embedding_model
         
     @abstractmethod
-    def add_texts(self, texts, metadatas=None):
+    def add_documents(self, documents):
         """
         Add texts and their metadata to the vector store.
         
@@ -21,29 +21,29 @@ class VectorStore(ABC):
         """
         pass
 
-    @abstractmethod
-    def similarity_search(self, query, k=4):
-        """
-        Perform a similarity search for a given query.
+    # @abstractmethod
+    # def similarity_search(self, query, k=4):
+    #     """
+    #     Perform a similarity search for a given query.
         
-        :param query: The query text
-        :param k: Number of results to return
-        :return: List of documents most similar to the query
-        """
-        pass
+    #     :param query: The query text
+    #     :param k: Number of results to return
+    #     :return: List of documents most similar to the query
+    #     """
+    #     pass
 
-    @abstractmethod
-    def delete(self, ids):
-        """
-        Delete documents from the vector store by their ids.
+    # @abstractmethod
+    # def delete(self, ids):
+    #     """
+    #     Delete documents from the vector store by their ids.
         
-        :param ids: List of ids to delete
-        """
-        pass
+    #     :param ids: List of ids to delete
+    #     """
+    #     pass
 
-    @abstractmethod
-    def persist(self):
-        """
-        Persist the vector store to disk.
-        """
-        pass
+    # @abstractmethod
+    # def persist(self):
+    #     """
+    #     Persist the vector store to disk.
+    #     """
+    #     pass
