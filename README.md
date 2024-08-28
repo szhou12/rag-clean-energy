@@ -77,6 +77,13 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 7. **TODO** Cloud-based deployment
     - 下面以AWS为例，阐述流程：AWS EC2是server/VM，相当于租用一台电脑，把整个application部署在这台电脑里，用户通过网址来访问使用。AWS S3是存储服务，在该应用里作为“缓存”暂时存储等待被解析的文件。
 
+- 明天
+1. 子连接跳过#
+2. 爬网页时，跳过 connection error
+3. RAGAgent debug
+4. 爬过网页的更新和删除
+
+
 ## Troubleshooting
 - [ValueError when using UnstructuredMarkdownLoader](https://github.com/langchain-ai/langchain/issues/8556)
 

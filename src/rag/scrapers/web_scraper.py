@@ -31,7 +31,7 @@ class WebScraper:
         Scrape content from one or multiple pages starting from the given root URL.
         Use BFS to follow links to next pages.
         Enqueue Rules:
-        1. only enqueuing sub-URLs/subdirectories of the root URL.
+        1. only enqueuing sub-URLs/subdirectories of current URL.
         2. exclude certain pages based on internally defined keywords (self._exclude_keywords) in the path
 
         :param url: The root URL to start scraping from.
@@ -48,13 +48,12 @@ class WebScraper:
         queue = deque([url])
         visited.add(url)
 
-        # Parse the root URL to get the base for comparison with children URLs
-        root_url_parsed = urlparse(url)
-
         # Step 2: Loop
         while queue and pages_scraped < max_pages:
             # Cur
             current_url = queue.popleft()
+            # Parse the parent URL to get the base for comparison with neighbor URLs
+            current_url_parsed = urlparse(current_url)
             # Update
             doc = self._langchain_load_url(current_url) # doc := List[Document]. one doc = one whole web page content without split
             if doc:
@@ -84,12 +83,15 @@ class WebScraper:
                 # check if already visited
                 if nei_url in visited:
                     continue
-                # check if a valid sub-URL of the root URL
-                if not self._is_valid_suburl(root_url_parsed, nei_url_parsed):
+                # check if a valid sub-URL of the current URL
+                if not self._is_valid_suburl(current_url_parsed, nei_url_parsed):
                     continue
                 # check if the URL should be excluded based on internal keywords
                 if self._should_exclude(nei_url_parsed):
                     continue
+
+                if '#' in nei_url:
+                    print(f"parent={current_url}, nei={nei_url}")
 
                 queue.append(nei_url)
                 visited.add(nei_url)
@@ -168,6 +170,8 @@ class WebScraper:
         """
         Private method to download a file from a given URL. To be called by _detect_and_download_files().
         Currently supports [.pdf, .xlsx, .xls] file types.
+
+        TODO: if 3rd-party website forbids downloading files, skip it to ensure the scraper does not get blocked.
         
         :param file_url: URL of the file to download
         :return: <str> Path to the downloaded file
@@ -241,6 +245,7 @@ class WebScraper:
         https://www.iea.org/about is NOT a sub-URL of https://www.iea.org/energy-system/fossil-fuels
         2. Fragment identifier (path followed by # symbol):
         https://www.iea.org/energy-system/fossil-fuels#content is NOT a sub-URL of https://www.iea.org/energy-system/fossil-fuels
+        "https://www.iea.org/energy-system/electricity/nuclear-power#tracking" is NOT a sub-URL of "https://www.iea.org/energy-system/electricity"
         3. Query parameters (path followed by ? symbol):
         https://www.iea.org/energy-system/fossil-fuels?ref=home is NOT a sub-URL of https://www.iea.org/energy-system/fossil-fuels
         """
@@ -249,7 +254,10 @@ class WebScraper:
             return False
         
         # Check that the child URL path starts with the root URL path and is longer
+        # ALso, if child starts starts with root and is longer, ensure that it is not with a fragment or query
         if not child_url_parsed.path.startswith(root_url_parsed.path):
+            return False
+        elif child_url_parsed.fragment or child_url_parsed.query:
             return False
         
         # Ensure that the child path is not just the root path with a fragment or query
