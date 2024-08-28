@@ -4,6 +4,7 @@ import requests
 from collections import deque
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
+import inspect
 
 class WebScraper:
     def __init__(self, dir=None):
@@ -64,8 +65,8 @@ class WebScraper:
             try:
                 response = requests.get(current_url)  # get HTML content from the URL
                 response.raise_for_status()  # Raise an exception for bad status codes
-            except requests.exceptions.RequestException as e:
-                print(f"Request failed for {current_url}: {e}")
+            except Exception as e:
+                print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Request failed for {current_url}: {e}")
                 continue
             soup = BeautifulSoup(response.text, 'html.parser')  # convert HTML to BeautifulSoup object
 
@@ -89,9 +90,6 @@ class WebScraper:
                 # check if the URL should be excluded based on internal keywords
                 if self._should_exclude(nei_url_parsed):
                     continue
-
-                if '#' in nei_url:
-                    print(f"parent={current_url}, nei={nei_url}")
 
                 queue.append(nei_url)
                 visited.add(nei_url)
@@ -171,15 +169,15 @@ class WebScraper:
         Private method to download a file from a given URL. To be called by _detect_and_download_files().
         Currently supports [.pdf, .xlsx, .xls] file types.
 
-        TODO: if 3rd-party website forbids downloading files, skip it to ensure the scraper does not get blocked.
+        If the target website forbids downloading files, skip it to ensure the scraper does not get blocked.
         
         :param file_url: URL of the file to download
         :return: <str> Path to the downloaded file
         """
         local_filename = os.path.join(self.dir, os.path.basename(file_url))
 
+        # Check if file already downloaded
         if local_filename in self.downloaded_files:
-            print(f"File already downloaded: {local_filename}")
             return None
         
         # Perform the request and handle errors
@@ -189,11 +187,10 @@ class WebScraper:
                 with open(local_filename, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
-                    print(f"Downloaded: {local_filename}")
             self.downloaded_files.add(local_filename)
-        except requests.exceptions.HTTPError as e:
-            print(f"Failed to download {file_url}: {e}")
-            return None  # Return None or handle the error as needed
+        except Exception as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Failed to download {file_url}: {e}")
+            return None
         
         return local_filename
     
@@ -258,11 +255,6 @@ class WebScraper:
         if not child_url_parsed.path.startswith(root_url_parsed.path):
             return False
         elif child_url_parsed.fragment or child_url_parsed.query:
-            return False
-        
-        # Ensure that the child path is not just the root path with a fragment or query
-        # The child path must be strictly longer than the root path (excluding trivial cases)
-        if (child_url_parsed.path == root_url_parsed.path and (child_url_parsed.fragment or child_url_parsed.query)):
             return False
         
         # Ensure the child path is a true subdirectory
