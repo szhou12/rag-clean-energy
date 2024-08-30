@@ -1,5 +1,6 @@
 from langchain.document_loaders import WebBaseLoader
 import os
+import re
 import requests
 from collections import deque
 from bs4 import BeautifulSoup
@@ -122,6 +123,40 @@ class WebScraper:
         self.scraped_urls.add(url)
         
         return doc
+
+    def _clean_page_content(self, doc):
+        for document in doc:
+            cleaned_content = self._clean_text(document.page_content)
+            document.page_content = cleaned_content
+        return doc
+    
+    def _clean_text(self, text: str) -> str:
+        """
+        Clean up text:
+        1. handle newline characters '\n'
+        2. handle whitespaces
+        3. other situations
+
+        :param text: The input text to clean.
+        :return: The cleaned text with repeated newlines removed.
+        """
+        # Remove UTF-8 BOM if present
+        text = text.replace('\ufeff', '')
+
+        # Replace multiple newlines with a single newline, preserving paragraph structure
+        text = re.sub(r'\n{2,}', '\n\n', text)
+
+       # Replace all sequences of whitespace characters (spaces, tabs, etc.) with a single space
+        text = re.sub(r'\s+', ' ', text)
+
+        # Remove leading and trailing whitespaces from each line
+        text = re.sub(r'^\s+|\s+$', '', text, flags=re.MULTILINE)
+
+        # Remove lines that are completely empty or contain only whitespace
+        text = re.sub(r'^\s*$\n', '', text, flags=re.MULTILINE)
+
+        # Finally, strip leading and trailing whitespace (including newlines)
+        return text.strip()
     
 
     def _load_scraped_urls(self):

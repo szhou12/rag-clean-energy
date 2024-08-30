@@ -95,13 +95,13 @@ with st.sidebar:
             with st.spinner("Scraping..."):
                 try:
                     # Call the scrape method
-                    documents, downloaded_files = rag_agent.process_url(url, max_pages=max_pages, autodownload=autodownload)
+                    num_docs, num_downloaded_files = rag_agent.process_url(url, max_pages=max_pages, autodownload=autodownload)
                     
                     # Display results
-                    st.success(f"Scraping completed! {len(documents)} pages scraped.")
+                    st.success(f"Scraping completed! {num_docs} pages scraped.")
                     
                     if autodownload:
-                        st.write(f"Files downloaded: {len(downloaded_files)}")
+                        st.write(f"Files downloaded: {num_downloaded_files}")
                         # for file in downloaded_files:
                         #     st.write(file)
                             

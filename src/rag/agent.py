@@ -71,7 +71,7 @@ class RAGAgent:
         :return: None
         """
         # Step 1: Scrape content from the URL
-        docs, downloaded_files = self.scraper.scrape(url, max_pages, autodownload)
+        docs, newly_downloaded_files = self.scraper.scrape(url, max_pages, autodownload)
         
         # Step 2: Split content into manageable chunks
         chunks = self.split_text(docs)
@@ -83,6 +83,8 @@ class RAGAgent:
         # self.vector_store.save(embeddings, chunks)
 
         # Step 5: parse downloaded files
+
+        return len(docs), len(newly_downloaded_files)
 
     def process_file(self, file):
         """
