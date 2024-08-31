@@ -1,5 +1,6 @@
 # rag/agent.py
 import os
+import re
 from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
 from rag.embedders import OpenAIEmbedding, HuggingFaceBgeEmbedding
@@ -72,11 +73,15 @@ class RAGAgent:
         """
         # Step 1: Scrape content from the URL
         docs, newly_downloaded_files = self.scraper.scrape(url, max_pages, autodownload)
+
+        # Step 2: Clean content before splitting
+        # clean up \n and whitespaces to obtain compact text
+        self.clean_page_content(docs)
         
-        # Step 2: Split content into manageable chunks
+        # Step 3: Split content into manageable chunks
         chunks = self.split_text(docs)
         
-        # Step 3: Embed each chunk (Document) and save to the vector store
+        # Step 4: Embed each chunk (Document) and save to the vector store
         chunk_ids = self.vector_store.add_documents(chunks)
         
         # Step 4: Save embeddings and chunks to the vector store
@@ -97,10 +102,13 @@ class RAGAgent:
         parser = self._select_parser(file)
         docs = parser.load_and_parse()
 
-        # Step 2: Split content into manageable chunks
+        # Step 2: Clean content before splitting
+        self.clean_page_content(docs)
+
+        # Step 3: Split content into manageable chunks
         chunks = self.split_text(docs)
 
-        # Step 3: Embed each chunk (Document) and save to the vector store
+        # Step 4: Embed each chunk (Document) and save to the vector store
         chunk_ids = self.vector_store.add_documents(chunks)
         
         # Step 4: Save embeddings and chunks to the vector store
@@ -261,4 +269,37 @@ class RAGAgent:
                 raise ValueError(f"Failed to initialize Hugging Face BGE Embeddings: {e}")
         else:
             raise ValueError(f"Unsupported embedder type: {embedder_type}")
+        
+    def clean_page_content(self, docs):
+        """
+        Clean up the page content of each document in the list.
+        Change happens in-place.
+
+        :param docs: List[Document]
+        """
+        for document in docs:
+            cleaned_content = self._clean_text(document.page_content)
+            document.page_content = cleaned_content
+    
+    def _clean_text(self, text: str) -> str:
+        """
+        Clean up text:
+        1. handle newline characters '\n'
+        2. handle whitespaces
+        3. other situations
+
+        :param text: The input text to clean.
+        :return: The cleaned text with repeated newlines removed.
+        """
+        # Remove UTF-8 BOM if present. its presence can cause issues in text processing
+        text = text.replace('\ufeff', '')
+
+        # Replace multiple newlines with a single newline, preserving paragraph structure
+        text = re.sub(r'\n{2,}', '\n\n', text)
+
+        # Replace all sequences of whitespace characters (spaces, tabs, etc.) excluding newline with a single space
+        text = re.sub(r'[^\S\n]+', ' ', text)
+
+        # Finally, strip leading and trailing whitespace (including newlines)
+        return text.strip()
 
