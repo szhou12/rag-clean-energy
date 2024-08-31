@@ -83,11 +83,6 @@ class RAGAgent:
         
         # Step 4: Embed each chunk (Document) and save to the vector store
         chunk_ids = self.vector_store.add_documents(chunks)
-        
-        # Step 4: Save embeddings and chunks to the vector store
-        # self.vector_store.save(embeddings, chunks)
-
-        # Step 5: parse downloaded files
 
         return len(docs), len(newly_downloaded_files)
 
