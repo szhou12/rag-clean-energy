@@ -84,6 +84,8 @@ class RAGAgent:
         # Step 4: Embed each chunk (Document) and save to the vector store
         chunk_ids = self.vector_store.add_documents(chunks)
 
+        # Step 5: Save metadata of (docs/url, chunk_ids) to MySQL
+
         return len(docs), len(newly_downloaded_files)
 
     def process_file(self, file):

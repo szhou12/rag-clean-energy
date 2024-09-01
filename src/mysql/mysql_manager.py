@@ -31,8 +31,7 @@ class MySQLManager:
         if existing_page:
             return existing_page.id  # Return existing web page ID
 
-        new_page = WebPage(source=url)
-        new_page.date = datetime.now()
+        new_page = WebPage(source=url) # TODO: Add refresh frequency
         session.add(new_page)
         session.commit()
         return new_page.id
