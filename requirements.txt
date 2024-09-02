@@ -13,3 +13,4 @@ openpyxl
 markdown
 sentence_transformers
 sqlalchemy
+sqlalchemy-utils

@@ -74,6 +74,9 @@ class RAGAgent:
         # Step 1: Scrape content from the URL
         docs, newly_downloaded_files = self.scraper.scrape(url, max_pages, autodownload)
 
+        # Step ???: Categorize the documents
+        new_docs, expired_docs, up_to_date_docs = self._categorize_documents(docs) # TODO
+
         # Step 2: Clean content before splitting
         # clean up \n and whitespaces to obtain compact text
         self.clean_page_content(docs)
@@ -299,4 +302,38 @@ class RAGAgent:
 
         # Finally, strip leading and trailing whitespace (including newlines)
         return text.strip()
+    
+
+    def _categorize_documents(self, docs):
+        """
+        Categorize documents (scraped web page) into new, expired, and up-to-date based on their status in the MySQL database.
+        
+        :param docs: List[Document] - Documents returned from the scraper.
+        :return: Tuple[List[Document], List[Document], List[Document]] - (new_docs, expired_docs, up_to_date_docs)
+        """
+        new_docs = []
+        expired_docs = []
+        up_to_date_docs = []
+        
+        # Start a MySQL session
+        session = self.mysql_manager.create_session() # TODO: Add MySQLManager to the __init__ method
+
+        try:
+            for document in docs:
+                existing_page = self.mysql_manager.check_web_page_exists(session, document.metadata['source'])
+
+                if existing_page:
+                    if existing_page.is_refresh_needed():
+                        expired_docs.append(document)
+                    else:
+                        up_to_date_docs.append(document)
+                else:
+                    new_docs.append(document)
+        except Exception as e:
+            print(f"An error occurred while categorizing documents: {e}")
+        finally:
+            # Close the session
+            self.mysql_manager.close_session(session)
+
+        return new_docs, expired_docs, up_to_date_docs
 
