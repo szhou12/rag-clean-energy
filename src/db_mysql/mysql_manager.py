@@ -1,7 +1,7 @@
-# src/mysql/mysql_manager.py
+# src/db_mysql/mysql_manager.py
 
-from mysql.dom import Base, WebPage, WebPageChunk
-from sqlalchemy import create_engine, inspect
+from db_mysql.dom import Base, WebPage, WebPageChunk
+from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -16,14 +16,14 @@ class MySQLManager:
         self.db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{db_name}"
 
         # Check if the database exists, if not create it
-        if not database_exists(self.db_uri):
-            create_database(self.db_uri)
-
-        self.engine = create_engine(self.db_uri) # engine = DB connector
-        self.Session = sessionmaker(bind=self.engine)
-
-        # Create tables if they do not exist
-        Base.metadata.create_all(self.engine)
+        try:
+            if not database_exists(self.db_uri):
+                create_database(self.db_uri)
+            self.engine = create_engine(self.db_uri)  # engine = DB connector
+            self.Session = sessionmaker(bind=self.engine)
+            Base.metadata.create_all(self.engine) # Create tables if they do not exist
+        except SQLAlchemyError as e:
+            print(f"Error initializing database: {e}")
 
     def create_session(self):
         """Create a new session."""
@@ -76,5 +76,4 @@ class MySQLManager:
         """Close the database engine."""
         self.engine.dispose()
         print("SQLAlchemy engine disposed.")
-
 

@@ -1,4 +1,4 @@
-# src/mysql/dom/models.py
+# src/db_mysql/dom/models.py
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
