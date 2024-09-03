@@ -110,7 +110,13 @@ class WebScraper:
         
         :param url: URL of the web page to load
         :return: List[Document] or None if the URL has already been scraped
+        NOTE: even though the return value is List[Document], since only one URL is loaded at a time, 
+        the list will always have one element.
         """
+
+        if url == "":
+            return None
+
         if url in self.scraped_urls:
             print(f"URL already scraped: {url}")
             return None
@@ -118,6 +124,10 @@ class WebScraper:
         # Load the content from the URL
         loader = WebBaseLoader(url)
         doc = loader.load()
+
+        # ensure the source URL is set in the metadata
+        if not doc[0].metadata.get('source', None):
+            doc[0].metadata['source'] = url
         
         # Add the URL to the set of scraped URLs
         self.scraped_urls.add(url)
