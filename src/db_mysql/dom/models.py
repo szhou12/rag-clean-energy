@@ -64,16 +64,16 @@ class WebPage(Base):
 class WebPageChunk(Base):
     __tablename__ = 'web_page_chunk'
 
-    chunk_id = Column(String(36), primary_key=True) # UUID
-    # NOTE: The foreign key ensures that each WebPageChunk is associated with exactly one WebPage.
-    source_checksum = Column(String(64), ForeignKey('web_page.checksum'), nullable=False)
+    chunk_id = Column(String(36), primary_key=True) # UUID4 = 128-bit = 32 hex digits (4-bit) + 4 hyphens
+    # NOTE: The foreign key ensures that one WebPageChunk maps to exactly one WebPage.
+    source = Column(String(255), ForeignKey('web_page.source'), nullable=False)
 
     # Define relationship with/Create a link back to WebPage
     web_page = relationship("WebPage", back_populates="chunks")
 
-    def __init__(self, chunk_id, checksum):
+    def __init__(self, chunk_id, source):
         self.chunk_id = chunk_id
-        self.source_checksum = checksum
+        self.source = source
 
     def __repr__(self):
-        return f'<WebPageChunk(chunk_id={self.chunk_id}, source_checksum={self.source_checksum})>'
+        return f'<WebPageChunk(chunk_id={self.chunk_id}, source={self.source})>'

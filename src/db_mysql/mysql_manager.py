@@ -40,6 +40,7 @@ class MySQLManager:
         """
         cur_checksum = hashlib.sha256(url.encode('utf-8')).hexdigest()
         # Check if URL is already in the database
+        # SELECT first row FROM WebPage WHERE checksum = cur_checksum
         existing_page = session.query(WebPage).filter_by(checksum=cur_checksum).first()
         if existing_page:
             return existing_page
@@ -51,6 +52,7 @@ class MySQLManager:
         checksum = hashlib.sha256(url.encode('utf-8')).hexdigest()
 
         try:
+            # SELECT first row FROM WebPage WHERE checksum = checksum
             existing_page = session.query(WebPage).filter_by(checksum=checksum).first()
             if existing_page:
                 return existing_page.id  # Return existing web page ID
@@ -75,5 +77,5 @@ class MySQLManager:
     def close(self):
         """Close the database engine."""
         self.engine.dispose()
-        print("SQLAlchemy engine disposed.")
+        print("Database connection closed.")
 

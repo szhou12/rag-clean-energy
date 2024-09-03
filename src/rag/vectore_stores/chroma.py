@@ -1,6 +1,7 @@
 # project/src/rag/vector_stores/chroma.py
 import os
 from uuid import uuid4
+from collections import namedtuple
 from langchain_chroma import Chroma
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from .base_vectore_store import VectorStore
@@ -27,13 +28,27 @@ class ChromaVectorStore(VectorStore):
     def add_documents(self, documents):
         """
         Add documents to the vector store.
-        Note: if the input documents contains ids and also give .add_documents() ids in the kwargs (ids=uuids), then ids=uuids will take precedence. Think of each given uuid as unique identifier of one record stored in Database.
+        Note: if the input documents contains ids and also give .add_documents() ids in the kwargs (ids=uuids), then ids=uuids will take precedence.
+        Think of each given uuid as unique identifier of one record stored in Database.
 
         :param documents: List[Document]
-        :return: List[str] UUIDs of the added documents
+        :return: List[NamedTuple] Tuples of (source, UUID) of the added documents
         """
+        # Define the named tuple type
+        DocumentInfo = namedtuple('DocumentInfo', ['source', 'id'])
+
+        # Generate UUIDs and extract sources
+        document_info_list = []
         uuids = [str(uuid4()) for _ in range(len(documents))]
-        return self.vector_store.add_documents(documents=filter_complex_metadata(documents), ids=uuids)
+        
+        for doc, uuid in zip(documents, uuids):
+            source = doc.metadata.get('source', None)
+            document_info_list.append(DocumentInfo(source=source, id=uuid))
+
+        # Add documents to the vector store
+        self.vector_store.add_documents(documents=filter_complex_metadata(documents), ids=uuids)
+
+        return document_info_list
     
     def as_retriever(self, **kwargs):
         """
