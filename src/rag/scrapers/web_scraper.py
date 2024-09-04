@@ -22,6 +22,7 @@ class WebScraper:
 
         # File to store scraped URLs
         # TODO: configure text file path after setup database
+        # TODO: get urls from MySQL
         self.scraped_urls_file = os.path.join(os.path.dirname(__file__), "scraped_urls.txt")
         self.scraped_urls = self._load_scraped_urls()
 
@@ -126,7 +127,7 @@ class WebScraper:
         doc = loader.load()
 
         # ensure the source URL is set in the metadata
-        if not doc[0].metadata.get('source', None):
+        if doc[0].metadata.get('source', None) is None:
             doc[0].metadata['source'] = url
         
         # Add the URL to the set of scraped URLs

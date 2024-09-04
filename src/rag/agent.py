@@ -1,6 +1,7 @@
 # rag/agent.py
 import os
 import re
+from typing import Optional
 from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
 from rag.embedders import OpenAIEmbedding, HuggingFaceBgeEmbedding
@@ -64,11 +65,14 @@ class RAGAgent:
                 """
         
 
-    def process_url(self, url, max_pages=1, autodownload=False):
+    def process_url(self, url: str, max_pages: Optional[int] = 1, autodownload: Optional[bool] = False, refresh_frequency: Optional[int] = None):
         """
         Process a given URL: scrape content, embed, and save to vector store.
         
-        :param url: The URL to scrape content from
+        :param url: start URL to scrape content from
+        :param max_pages: The maximum number of pages to scrape. If > 1, scrape sub-URLs using BFS
+        :param autodownload: Whether to automatically download files linked in the URL
+        :param refresh_frequency: The frequency in days to re-scrape and update the page content
         :return: None
         """
         # Step 1: Scrape content from the URL
@@ -77,17 +81,20 @@ class RAGAgent:
         # Step ???: Categorize the documents
         new_docs, expired_docs, up_to_date_docs = self._categorize_documents(docs) # TODO
 
+        new_docs_metadata = self.extract_metadata(new_docs, refresh_frequency)
+
         # Step 2: Clean content before splitting
         # clean up \n and whitespaces to obtain compact text
-        self.clean_page_content(docs)
+        self.clean_page_content(new_docs)
         
         # Step 3: Split content into manageable chunks
-        chunks = self.split_text(docs)
+        chunks = self.split_text(new_docs)
         
         # Step 4: Embed each chunk (Document) and save to the vector store
-        chunk_ids = self.vector_store.add_documents(chunks)
+        chunk_metadata_list = self.vector_store.add_documents(chunks)
 
         # Step 5: Save metadata of (docs/url, chunk_ids) to MySQL
+        self.mysql_manager.insert_web_page_chunks(session, new_docs_metadata)
 
         return len(docs), len(newly_downloaded_files)
 
@@ -336,4 +343,22 @@ class RAGAgent:
             self.mysql_manager.close_session(session)
 
         return new_docs, expired_docs, up_to_date_docs
+    
+    def extract_metadata(self, docs, refresh_frequency: Optional[int] = None):
+        """
+        Extract metadata from the documents.
+
+        :param docs: List[Document]
+        :param refresh_frequency: The re-scraping frequency in days for web contents
+        :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency}, {...}]
+        """
+        document_info_list = []
+        for doc in docs:
+            source = doc.metadata.get('source', None)
+            if source:
+                document_info_list.append({'source': source, 'refresh_frequency': refresh_frequency})
+            else:
+                print(f"Source not found in metadata: {doc.metadata}")
+
+        return document_info_list
 

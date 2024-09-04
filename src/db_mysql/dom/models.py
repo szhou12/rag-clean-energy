@@ -1,5 +1,6 @@
 # src/db_mysql/dom/models.py
 
+from typing import Optional
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -25,7 +26,7 @@ class WebPage(Base):
     # Define relationship with/Create a link to WebPageChunk
     chunks = relationship("WebPageChunk", back_populates="web_page")
 
-    def __init__(self, source: str, freq: int = None):
+    def __init__(self, source: str, freq: Optional[int] = None):
         """
         Initialize a WebPage instance.
         
@@ -33,9 +34,9 @@ class WebPage(Base):
         :param freq: Frequency in days for refreshing the page. Default is None (no automatic refresh).
         """
         self.source = source
+        self.refresh_frequency = freq
         self.checksum = hashlib.sha256(source.encode('utf-8')).hexdigest()
         self.date = datetime.now()  # Set the current date as the last scraped date
-        self.refresh_frequency = freq
 
     def __repr__(self):
         return f'<WebPage(id={self.id}, url={self.source}, date={self.date}, refresh_frequency={self.refresh_frequency})>'
@@ -64,16 +65,19 @@ class WebPage(Base):
 class WebPageChunk(Base):
     __tablename__ = 'web_page_chunk'
 
-    chunk_id = Column(String(36), primary_key=True) # UUID4 = 128-bit = 32 hex digits (4-bit) + 4 hyphens
+    # Chunk id = UUID4 = 128-bit = 32 hex digits (4-bit) + 4 hyphens
+    id = Column(String(36), primary_key=True) # 
+
+    # Source = URL of the web page
     # NOTE: The foreign key ensures that one WebPageChunk maps to exactly one WebPage.
     source = Column(String(255), ForeignKey('web_page.source'), nullable=False)
 
     # Define relationship with/Create a link back to WebPage
     web_page = relationship("WebPage", back_populates="chunks")
 
-    def __init__(self, chunk_id, source):
-        self.chunk_id = chunk_id
+    def __init__(self, id: str, source: str):
+        self.id = id
         self.source = source
 
     def __repr__(self):
-        return f'<WebPageChunk(chunk_id={self.chunk_id}, source={self.source})>'
+        return f'<WebPageChunk(chunk_id={self.id}, source_url={self.source})>'

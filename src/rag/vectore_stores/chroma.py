@@ -32,18 +32,16 @@ class ChromaVectorStore(VectorStore):
         Think of each given uuid as unique identifier of one record stored in Database.
 
         :param documents: List[Document]
-        :return: List[NamedTuple] Tuples of (source, UUID) of the added documents
+        :return: List[dict] [{'id': uuid4, 'source': source}, {...}]
         """
-        # Define the named tuple type
-        DocumentInfo = namedtuple('DocumentInfo', ['source', 'id'])
-
         # Generate UUIDs and extract sources
         document_info_list = []
+
         uuids = [str(uuid4()) for _ in range(len(documents))]
         
         for doc, uuid in zip(documents, uuids):
-            source = doc.metadata.get('source', None)
-            document_info_list.append(DocumentInfo(source=source, id=uuid))
+            source = doc.metadata.get('source', None) # file parser and scraper class ensure 'source' not None
+            document_info_list.append({'id': uuid, 'source': source})
 
         # Add documents to the vector store
         self.vector_store.add_documents(documents=filter_complex_metadata(documents), ids=uuids)
