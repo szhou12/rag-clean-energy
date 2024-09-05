@@ -6,6 +6,7 @@ from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 import hashlib
+from datetime import datetime
 
 class MySQLManager:
     def __init__(self, host, user, password, port, db_name):
@@ -73,6 +74,15 @@ class MySQLManager:
             if not document_info_list:
                 print("No valid data to insert.")
                 return
+            
+            # Add the checksum to each entry
+            for document in document_info_list:
+                source = document.get('source')
+                if source:
+                    # Calculate and add the checksum
+                    document['checksum'] = hashlib.sha256(source.encode('utf-8')).hexdigest()
+                    # Add the current date for the web page
+                    document['date'] = datetime.now()
 
             # Perform bulk insert using ORM's insert statement
             stmt = insert(WebPage)  # Create an insert statement for the WebPage ORM model
@@ -140,7 +150,7 @@ class MySQLManager:
             web_pages = session.query(WebPage).all()
             # Filter URLs that don't need a refresh: either None or Not due
             active_urls = {web_page.source for web_page in web_pages if not web_page.is_refresh_needed()}
-            
+
             return active_urls
         
         except SQLAlchemyError as e:

@@ -1,7 +1,6 @@
 # project/src/rag/vector_stores/chroma.py
 import os
 from uuid import uuid4
-from collections import namedtuple
 from langchain_chroma import Chroma
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from .base_vectore_store import VectorStore

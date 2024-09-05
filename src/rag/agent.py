@@ -105,7 +105,7 @@ class RAGAgent:
         session = self.mysql_manager.create_session()
         try:
             # Insert web page metadata for the new documents
-            self.mysql_manager.insert_web_page(session, new_docs_metadata)
+            self.mysql_manager.insert_web_pages(session, new_docs_metadata)
             # Insert chunk metadata (source URL and chunk ID) for each chunk
             self.mysql_manager.insert_web_page_chunks(session, chunk_metadata_list)
             # Commit the transaction once both web page metadata and chunk metadata are inserted

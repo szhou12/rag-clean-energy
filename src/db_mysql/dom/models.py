@@ -18,7 +18,7 @@ Base = declarative_base()
 class WebPage(Base):
     __tablename__ = 'web_page'
     id = Column(Integer, primary_key=True)
-    source = Column(String(255), nullable=False)
+    source = Column(String(255), nullable=False, index=True)
     checksum = Column(String(64), unique=True, nullable=False) # SHA-256 checksum
     date = Column(DateTime, nullable=False)
     refresh_frequency = Column(Integer, nullable=True)  # Refresh frequency in days

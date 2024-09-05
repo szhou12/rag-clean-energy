@@ -42,6 +42,14 @@ mysql> quit
 ```linux
 mysql> DROP DATABASE <database_name>;
 ```
+5. Inspect structure of a table
+```linux
+mysql> DESCRIBE <table_name>;
+```
+6. Count total rows in a table
+```linux
+mysql> SELECT COUNT(*) FROM <table_name>;
+```
 
 
 ## Improvements To-Do
