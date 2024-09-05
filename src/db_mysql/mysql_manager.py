@@ -77,7 +77,6 @@ class MySQLManager:
             # Perform bulk insert using ORM's insert statement
             stmt = insert(WebPage)  # Create an insert statement for the WebPage ORM model
             result = session.execute(stmt, document_info_list)  # Execute the bulk insert
-            session.commit()  # Commit the transaction
 
             # Extract the IDs of the inserted rows from the result
             # inserted_ids = [row['id'] for row in result.returned_defaults]
@@ -102,7 +101,6 @@ class MySQLManager:
             # Perform bulk insert using ORM's insert statement and Session.execute()
             stmt = insert(WebPageChunk)  # ORM insert statement
             session.execute(stmt, document_info_list)
-            session.commit()
         except SQLAlchemyError as e:
             session.rollback()
             print(f"An error occurred during bulk insert WebPageChunk: {e}")
@@ -126,5 +124,26 @@ class MySQLManager:
             return {url[0] for url in urls}
         except SQLAlchemyError as e:
             print(f"An error occurred while fetching URLs: {e}")
+            return set()
+        
+    
+    def get_active_urls(self, session):
+        """
+        Get URLs that either do not require refresh (refresh_frequency = None) or
+        are not due for refresh based on the last scraped date and refresh frequency.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :return: Set of active URLs (source) that do not need to be refreshed.
+        """
+        try:
+            # Query all WebPage objects from the database
+            web_pages = session.query(WebPage).all()
+            # Filter URLs that don't need a refresh: either None or Not due
+            active_urls = {web_page.source for web_page in web_pages if not web_page.is_refresh_needed()}
+            
+            return active_urls
+        
+        except SQLAlchemyError as e:
+            print(f"An error occurred while fetching active URLs: {e}")
             return set()
 

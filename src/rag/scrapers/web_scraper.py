@@ -1,6 +1,5 @@
 from langchain.document_loaders import WebBaseLoader
 import os
-import re
 import requests
 from collections import deque
 from bs4 import BeautifulSoup
@@ -8,9 +7,14 @@ from urllib.parse import urljoin, urlparse
 import inspect
 
 class WebScraper:
-    def __init__(self, dir=None):
-        # TODO: AFTER setup databse, use env variable to store the directory path
-        # self.dir stores auto-downloaded files when scraping
+    def __init__(self, mysql_manager, dir=None):
+        """
+        Initialize the WebScraper with necessary components.
+        
+        :param mysql_manager: MySQLManager instance to interact with the database
+        :param dir: Directory to store auto-downloaded files when scraping
+        """
+        # TODO: AFTER cloud deployment, use provided cloud space to temporarily stored auto-downloaded files. May use env variable to store the directory path?
         self.dir = dir or os.path.join(os.getcwd(), 'downloads')
 
         # Create the download directory if it does not exist yet
@@ -23,8 +27,14 @@ class WebScraper:
         # File to store scraped URLs
         # TODO: configure text file path after setup database
         # TODO: get urls from MySQL
-        self.scraped_urls_file = os.path.join(os.path.dirname(__file__), "scraped_urls.txt")
-        self.scraped_urls = self._load_scraped_urls()
+        # self.scraped_urls_file = os.path.join(os.path.dirname(__file__), "scraped_urls.txt")
+        # self.scraped_urls = self._load_scraped_urls()
+        
+        # Reference to MySQLManager for database interaction
+        self.mysql_manager = mysql_manager
+        # Fetch scraped URLs from MySQL instead of a text file
+        self.scraped_urls = set()
+        self.fetch_active_urls_from_db()
 
         # Internal exclusion URL keywords (private)
         self._exclude_keywords = {"about", "about-us", "contact", "contact-us", "help", "help-centre", "help-center", "career", "careers", "job", "jobs", "privacy", "terms", "policy", "faq", "support", "login", "register", "signup", "sign-up", "subscribe", "unsubscribe", "donate", "shop", "store", "cart", "checkout", "search", "events", "programmes"}
@@ -97,7 +107,7 @@ class WebScraper:
                 visited.add(nei_url)
        
         # Write all scraped URLs into the text file before returning results
-        self._update_scraped_urls_file()
+        # self._update_scraped_urls_file()
 
         # docs = List[Document]
         # newly_downloaded_files = List[<str>filepath]
@@ -131,45 +141,48 @@ class WebScraper:
             doc[0].metadata['source'] = url
         
         # Add the URL to the set of scraped URLs
-        self.scraped_urls.add(url)
+        # self.scraped_urls.add(url)
         
         return doc
 
 
-    def _load_scraped_urls(self):
-        """
-        Load previously scraped URLs from the text file into a set.
-        If the file does not exist, create it.
-        """
-        scraped_urls = set()
+    # def _load_scraped_urls(self):
+    #     """
+    #     Load previously scraped URLs from the text file into a set.
+    #     If the file does not exist, create it.
+    #     """
+    #     scraped_urls = set()
         
-        # Ensure the directory for the file exists
-        file_dir = os.path.dirname(self.scraped_urls_file)
-        if not os.path.exists(file_dir):
-            os.makedirs(file_dir)
+    #     # Ensure the directory for the file exists
+    #     file_dir = os.path.dirname(self.scraped_urls_file)
+    #     if not os.path.exists(file_dir):
+    #         os.makedirs(file_dir)
 
-        # Create the file if it doesn't exist
-        if not os.path.exists(self.scraped_urls_file):
-            with open(self.scraped_urls_file, 'w') as f:
-                pass  # Just create the file, no need to write anything yet
+    #     # Create the file if it doesn't exist
+    #     if not os.path.exists(self.scraped_urls_file):
+    #         with open(self.scraped_urls_file, 'w') as f:
+    #             pass  # Just create the file, no need to write anything yet
 
-        # Load the URLs from the file
-        if os.path.exists(self.scraped_urls_file):
-            with open(self.scraped_urls_file, 'r') as f:
-                for line in f:
-                    scraped_urls.add(line.strip())
+    #     # Load the URLs from the file
+    #     if os.path.exists(self.scraped_urls_file):
+    #         with open(self.scraped_urls_file, 'r') as f:
+    #             for line in f:
+    #                 scraped_urls.add(line.strip())
 
-        return scraped_urls
+    #     return scraped_urls
 
-    def _update_scraped_urls_file(self):
-        """
-        Update the scraped URLs text file with the latest set of scraped URLs.
-        """
-        with open(self.scraped_urls_file, 'w') as f:
-            for url in self.scraped_urls:
-                f.write(f"{url}\n")
+    # def _update_scraped_urls_file(self):
+    #     """
+    #     Update the scraped URLs text file with the latest set of scraped URLs.
+    #     """
+    #     with open(self.scraped_urls_file, 'w') as f:
+    #         for url in self.scraped_urls:
+    #             f.write(f"{url}\n")
 
     def _load_existing_files(self) -> set:
+        """
+        Load file paths of existing files in the download directory into a set.
+        """
         existing_files = set()
         for root, _, files in os.walk(self.dir):
             for file in files:
@@ -278,14 +291,28 @@ class WebScraper:
     def _should_exclude(self, child_url_parsed) -> bool:
         """
         Check if a URL should be excluded from scraping based on the first path segment.
+        Exclusion rule: exclude if the specified keyword is the first path segment.
+        i.e. the exclusion keyword directly follows the domain name (netloc).
+        Example:
+        https://www.iea.org/about is excluded
 
         :param child_url_parsed: Parsed result of the child URL connected to the root URL..
         :return: True if the URL should be excluded, False otherwise.
-
-        Example:
-        https://www.iea.org/about is excluded
         """
         path_segments = child_url_parsed.path.strip('/').split('/')
         return len(path_segments) > 0 and path_segments[0] in self._exclude_keywords
+    
+    def fetch_active_urls_from_db(self):
+        """
+        Reset the set of scraped URLs by fetching the latest URLs from MySQL.
+        Fetch previously scraped and currently active URLs from the MySQL database.
+        Returns a set of URLs.
+        """
+        session = self.mysql_manager.create_session()
+        try:
+            # Use MySQLManager to fetch all active scraped URLs from the database
+            self.scraped_urls = self.mysql_manager.get_active_urls(session)
+        finally:
+            self.mysql_manager.close_session(session)
     
     

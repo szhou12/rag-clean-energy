@@ -19,6 +19,31 @@ streamlit run src/app.py
 
 Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 
+## MySQL
+### Terminal Commands
+#### Log in to MySQL
+```linux
+mysql -u root -p
+```
+#### MySQL Console
+1. Check all databases
+```linux
+mysql> SHOW databases;
+```
+2. Enter a database
+```linux
+mysql> USE <database_name>;
+```
+3. Log out of MySQL
+```linux
+mysql> quit
+```
+4. Delete a database
+```linux
+mysql> DROP DATABASE <database_name>;
+```
+
+
 ## Improvements To-Do
 1. Abstract retrieval chain: to be a class
 2. Llama-index node parser

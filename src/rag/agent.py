@@ -1,4 +1,4 @@
-# rag/agent.py
+# src/rag/agent.py
 import os
 import re
 from typing import Optional
@@ -6,6 +6,7 @@ from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
 from rag.embedders import OpenAIEmbedding, HuggingFaceBgeEmbedding
 from rag.vectore_stores import ChromaVectorStore
+from db_mysql import MySQLManager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
@@ -14,7 +15,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
 class RAGAgent:
-    def __init__(self, llm="gpt-4o-mini", embedder='openai', vector_db=None, response_template=None):
+    def __init__(self, mysql_config, llm="gpt-4o-mini", embedder='openai', vector_db=None, response_template=None):
         """
         Initialize the RAGAgent with necessary components.
         
@@ -27,7 +28,10 @@ class RAGAgent:
         :param vector_db: <str> Name of a vector store (e.g., Chroma). Used to constrcut persistent directory
         :param response_template: Predefined template for formatting responses
         """
-        self.scraper = WebScraper()
+
+        self.mysql_manager = MySQLManager(**mysql_config)
+
+        self.scraper = WebScraper(mysql_manager=self.mysql_manager)
         
         self._file_parsers = {}  # {'.pdf': PDFParser(), '.xls': ExcelParser(), '.xlsx': ExcelParser(), ...}
         
@@ -78,23 +82,42 @@ class RAGAgent:
         # Step 1: Scrape content from the URL
         docs, newly_downloaded_files = self.scraper.scrape(url, max_pages, autodownload)
 
-        # Step ???: Categorize the documents
-        new_docs, expired_docs, up_to_date_docs = self._categorize_documents(docs) # TODO
+        # Step 2: Categorize the documents into new, expired, and up-to-date
+        # TODO: handle expired_docs, up_to_date_docs later
+        new_docs, expired_docs, up_to_date_docs = self._categorize_documents(docs)
 
+        # Step 3: Extract metadata for the new documents
+        # new_docs_metadata = [{'source': source, 'refresh_frequency': freq}, ...]
         new_docs_metadata = self.extract_metadata(new_docs, refresh_frequency)
 
-        # Step 2: Clean content before splitting
+        # Step 4: Clean content before splitting
         # clean up \n and whitespaces to obtain compact text
         self.clean_page_content(new_docs)
         
-        # Step 3: Split content into manageable chunks
+        # Step 5: Split content into manageable chunks
         chunks = self.split_text(new_docs)
         
-        # Step 4: Embed each chunk (Document) and save to the vector store
+        # Step 6: Embed each chunk (Document) and save to the vector store
+        # chunk_metadata_list = [{'source': source, 'id': chunk_id}, ...]
         chunk_metadata_list = self.vector_store.add_documents(chunks)
 
-        # Step 5: Save metadata of (docs/url, chunk_ids) to MySQL
-        self.mysql_manager.insert_web_page_chunks(session, new_docs_metadata)
+        # Step 7: Open a MySQL session and insert metadata of web pages and chunks
+        session = self.mysql_manager.create_session()
+        try:
+            # Insert web page metadata for the new documents
+            self.mysql_manager.insert_web_page(session, new_docs_metadata)
+            # Insert chunk metadata (source URL and chunk ID) for each chunk
+            self.mysql_manager.insert_web_page_chunks(session, chunk_metadata_list)
+            # Commit the transaction once both web page metadata and chunk metadata are inserted
+            session.commit()
+        except Exception as e:
+            session.rollback()  # Rollback the session on error
+            print(f"An error occurred while inserting into MySQL: {e}")
+        finally:
+            self.mysql_manager.close_session(session)
+
+        # Reset self.scraped_urls in WebScraper instance
+        self.scraper.fetch_active_urls_from_db()
 
         return len(docs), len(newly_downloaded_files)
 
@@ -323,7 +346,7 @@ class RAGAgent:
         up_to_date_docs = []
         
         # Start a MySQL session
-        session = self.mysql_manager.create_session() # TODO: Add MySQLManager to the __init__ method
+        session = self.mysql_manager.create_session()
 
         try:
             for document in docs:

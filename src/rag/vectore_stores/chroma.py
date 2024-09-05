@@ -40,7 +40,7 @@ class ChromaVectorStore(VectorStore):
         uuids = [str(uuid4()) for _ in range(len(documents))]
         
         for doc, uuid in zip(documents, uuids):
-            source = doc.metadata.get('source', None) # file parser and scraper class ensure 'source' not None
+            source = doc.metadata.get('source', None) # file parser and scraper class ensure 'source' NOT None
             document_info_list.append({'id': uuid, 'source': source})
 
         # Add documents to the vector store
