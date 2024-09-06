@@ -26,27 +26,27 @@ Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
 mysql -u root -p
 ```
 #### MySQL Console
-1. Check all databases
+- Check all databases
 ```linux
 mysql> SHOW databases;
 ```
-2. Enter a database
+- Enter a database
 ```linux
 mysql> USE <database_name>;
 ```
-3. Log out of MySQL
+- Log out of MySQL
 ```linux
 mysql> quit
 ```
-4. Delete a database
+- Delete a database
 ```linux
 mysql> DROP DATABASE <database_name>;
 ```
-5. Inspect structure of a table
+- Inspect structure of a table
 ```linux
 mysql> DESCRIBE <table_name>;
 ```
-6. Count total rows in a table
+- Count total rows in a table
 ```linux
 mysql> SELECT COUNT(*) FROM <table_name>;
 ```
@@ -112,8 +112,9 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 8. **TODO** Use `logging` to log errors and debug information
 
 - 明天
-1. RAGAgent debug
-2. 爬过网页的更新和删除
+1. 爬过网页的更新和删除
+2. AI response template: 以投喂文本为主，增加citation功能
+3. 中英文embedding切换
 
 
 ## Troubleshooting

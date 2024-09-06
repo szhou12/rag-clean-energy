@@ -66,6 +66,7 @@ class RAGAgent:
                 <Summary>: key points that should be highlighted
                 <Details>: provide details to each key point and enrich the details with numbers and statistics
                 <Conclusion>: give a proper conclusion
+                Your answer should cite sources for any numbers or statistics you provide.
                 """
         
 
