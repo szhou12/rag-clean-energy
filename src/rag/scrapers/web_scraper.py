@@ -39,7 +39,7 @@ class WebScraper:
         # Internal exclusion URL keywords (private)
         self._exclude_keywords = {"about", "about-us", "contact", "contact-us", "help", "help-centre", "help-center", "career", "careers", "job", "jobs", "privacy", "terms", "policy", "faq", "support", "login", "register", "signup", "sign-up", "subscribe", "unsubscribe", "donate", "shop", "store", "cart", "checkout", "search", "events", "programmes"}
     
-    def scrape(self, url, max_pages=1, autodownload=False):
+    def scrape(self, url: str, max_pages: int=1, autodownload: bool=False):
         """
         Scrape content from one or multiple pages starting from the given root URL.
         Use BFS to follow links to next pages.
@@ -105,9 +105,6 @@ class WebScraper:
 
                 queue.append(nei_url)
                 visited.add(nei_url)
-       
-        # Write all scraped URLs into the text file before returning results
-        # self._update_scraped_urls_file()
 
         # docs = List[Document]
         # newly_downloaded_files = List[<str>filepath]
@@ -139,9 +136,6 @@ class WebScraper:
         # ensure the source URL is set in the metadata
         if doc[0].metadata.get('source', None) is None:
             doc[0].metadata['source'] = url
-        
-        # Add the URL to the set of scraped URLs
-        # self.scraped_urls.add(url)
         
         return doc
 

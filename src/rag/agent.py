@@ -70,13 +70,13 @@ class RAGAgent:
                 """
         
 
-    def process_url(self, url: str, max_pages: Optional[int] = 1, autodownload: Optional[bool] = False, refresh_frequency: Optional[int] = None):
+    def process_url(self, url: str, max_pages: int = 1, autodownload: bool = False, refresh_frequency: Optional[int] = None):
         """
         Process a given URL: scrape content, embed, and save to vector store.
         
         :param url: start URL to scrape content from
-        :param max_pages: The maximum number of pages to scrape. If > 1, scrape sub-URLs using BFS
-        :param autodownload: Whether to automatically download files linked in the URL
+        :param max_pages: The maximum number of pages to scrape. If > 1, scrape sub-URLs using BFS. Default is 1.
+        :param autodownload: Whether to automatically download files linked in the URL. Default is False.
         :param refresh_frequency: The frequency in days to re-scrape and update the page content
         :return: None
         """

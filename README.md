@@ -94,15 +94,21 @@ mysql> SELECT COUNT(*) FROM <table_name>;
             vector_store_id VARCHAR(255)  -- Reference to the vector data in the vector store
         );
         ```
-        - Example Schema : Web Pages Metadata Table
+        - Schema : Web Pages Metadata Table
         ```
-        CREATE TABLE parsed_web_pages (
+        CREATE TABLE web_page (
             id SERIAL PRIMARY KEY,
-            url TEXT,
-            url_checksum CHAR(64),  -- SHA-256 or similar checksum of the URL
-            scrape_date TIMESTAMP,
-            parsed_date TIMESTAMP,
-            vector_store_id VARCHAR(255)  -- Reference to the vector data in the vector store
+            source TEXT, -- URL of the web page
+            checksum CHAR(64),  -- SHA-256 checksum of the URL
+            date TIMESTAMP, -- date of the web page stored in MySQL
+            refresh_frequency INT, -- in days for re-scraping
+        );
+        ```
+        - Schema : Web Page Chunks Metadata Table
+        ```
+        CREATE TABLE web_page_chunk (
+            id TEXT PRIMARY KEY, - UUID4 for this chunk
+            source TEXT FOREIGN KEY, -- URL of the web page
         );
         ```
 6. **TODO** 缓存空间Buffer: 用来暂存未解析的文件。
@@ -141,6 +147,8 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 
 ### Chroma
 - [Run Chroma DB on a local machine and as a Docker container](https://abhishektatachar.medium.com/run-chroma-db-on-a-local-machine-and-as-a-docker-container-a9d4b91d2a97)
+- [Changing the distance method in Chroma](https://github.com/langchain-ai/langchain/discussions/22422)
+- [Chroma System Constraints](https://cookbook.chromadb.dev/core/system_constraints/)
 
 ### Tutorials
 - [Langchain PDF App (GUI) | Create a ChatGPT For Your PDF in Python](https://www.youtube.com/watch?v=wUAUdEw5oxM&t=1030s&ab_channel=AlejandroAO-Software%26Ai)

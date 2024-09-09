@@ -2,8 +2,7 @@
 
 from typing import Optional
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, declarative_base
 import hashlib
 from datetime import datetime, timedelta
 
@@ -66,7 +65,7 @@ class WebPageChunk(Base):
     __tablename__ = 'web_page_chunk'
 
     # Chunk id = UUID4 = 128-bit = 32 hex digits (4-bit) + 4 hyphens
-    id = Column(String(36), primary_key=True) # 
+    id = Column(String(36), primary_key=True)
 
     # Source = URL of the web page
     # NOTE: The foreign key ensures that one WebPageChunk maps to exactly one WebPage.

@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 import hashlib
 from datetime import datetime
+import inspect
 
 class MySQLManager:
     def __init__(self, host, user, password, port, db_name):
@@ -52,14 +53,13 @@ class MySQLManager:
         """
         Insert a new web page if it does not exist.
         """
-
         try:
             new_page = WebPage(source=url, freq=refresh_freq)
             session.add(new_page)
             session.commit()  # Commit transaction here
         except SQLAlchemyError as e:
             session.rollback()  # Rollback transaction in case of error
-            print(f"An error occurred: {e}")
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error insert WebPage: {e}")
             # raise  # Re-raise exception to handle it higher up if needed
 
     def insert_web_pages(self, session, document_info_list):
@@ -85,8 +85,8 @@ class MySQLManager:
                     document['date'] = datetime.now()
 
             # Perform bulk insert using ORM's insert statement
-            stmt = insert(WebPage)  # Create an insert statement for the WebPage ORM model
-            result = session.execute(stmt, document_info_list)  # Execute the bulk insert
+            sql_stmt = insert(WebPage)  # Create an insert statement for the WebPage ORM model
+            _ = session.execute(sql_stmt, document_info_list)  # Execute the bulk insert. Return Result object.
 
             # Extract the IDs of the inserted rows from the result
             # inserted_ids = [row['id'] for row in result.returned_defaults]
@@ -94,7 +94,7 @@ class MySQLManager:
 
         except SQLAlchemyError as e:
             session.rollback()  # Rollback transaction in case of error
-            print(f"An error occurred during bulk insert WebPage: {e}")
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPage: {e}")
 
     def insert_web_page_chunks(self, session, document_info_list):
         """
@@ -109,11 +109,11 @@ class MySQLManager:
                 return
             
             # Perform bulk insert using ORM's insert statement and Session.execute()
-            stmt = insert(WebPageChunk)  # ORM insert statement
-            session.execute(stmt, document_info_list)
+            sql_stmt = insert(WebPageChunk)  # ORM insert statement
+            session.execute(sql_stmt, document_info_list)
         except SQLAlchemyError as e:
             session.rollback()
-            print(f"An error occurred during bulk insert WebPageChunk: {e}")
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
 
     def close(self):
         """Close the database engine."""
@@ -133,7 +133,7 @@ class MySQLManager:
             # Extract URLs from the query result
             return {url[0] for url in urls}
         except SQLAlchemyError as e:
-            print(f"An error occurred while fetching URLs: {e}")
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching URLs: {e}")
             return set()
         
     
@@ -154,6 +154,6 @@ class MySQLManager:
             return active_urls
         
         except SQLAlchemyError as e:
-            print(f"An error occurred while fetching active URLs: {e}")
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching active URLs: {e}")
             return set()
 
