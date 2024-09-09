@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import delete, select
 from sqlalchemy_utils import database_exists, create_database, drop_database
 from datetime import datetime, timedelta
 import os
@@ -48,9 +49,9 @@ def session(mysql_manager):
     # Create a new session for each test
     session = mysql_manager.create_session()
 
-    # Clear the tables before each test (optional)
-    session.query(WebPageChunk).delete()
-    session.query(WebPage).delete()
+    # Clear the tables before each test
+    session.execute(delete(WebPage))
+    session.execute(delete(WebPageChunk))
     session.commit()  # Commit deletion
 
     yield session
@@ -65,7 +66,8 @@ def test_insert_web_page(mysql_manager, session):
     mysql_manager.insert_web_page(session, url, refresh_freq=7)
     
     # Check if the web page was inserted
-    page = session.query(WebPage).filter_by(source=url).first()
+    sql_stmt = select(WebPage).filter_by(source=url)
+    page = session.scalars(sql_stmt).first()
     assert page is not None
     assert page.source == url
     assert page.refresh_frequency == 7
@@ -92,7 +94,8 @@ def test_insert_web_pages(mysql_manager, session):
     mysql_manager.insert_web_pages(session, document_info_list)
     
     # Check if the web pages were inserted
-    pages = session.query(WebPage).filter(WebPage.source.in_([d['source'] for d in document_info_list])).all()
+    sql_stmt = select(WebPage).filter(WebPage.source.in_([d['source'] for d in document_info_list]))
+    pages = session.scalars(sql_stmt).all()
     assert len(pages) == len(document_info_list)
 
 def test_insert_web_page_chunks(mysql_manager, session):
@@ -101,7 +104,8 @@ def test_insert_web_page_chunks(mysql_manager, session):
     """
     url = "https://example5.com"
     mysql_manager.insert_web_page(session, url)
-    page = session.query(WebPage).filter_by(source=url).first()
+    sql_stmt = select(WebPage).filter_by(source=url)
+    page = session.scalars(sql_stmt).first()
     
     chunk_info_list = [
         {'id': 'chunk1', 'source': page.source},
@@ -110,7 +114,8 @@ def test_insert_web_page_chunks(mysql_manager, session):
     mysql_manager.insert_web_page_chunks(session, chunk_info_list)
     
     # Check if the chunks were inserted
-    chunks = session.query(WebPageChunk).filter_by(source=page.source).all()
+    sql_stmt = select(WebPageChunk).filter_by(source=page.source)
+    chunks = session.scalars(sql_stmt).all()
     assert len(chunks) == len(chunk_info_list)
 
 
@@ -169,3 +174,35 @@ def test_get_active_urls_no_refresh_needed(mysql_manager, session):
     assert isinstance(active_urls, set), f"Expected 'set', but got {type(active_urls)}"
     # Check that the length of the set is 0
     assert len(active_urls) == len(web_pages_metadata), f"Expected 0 active URLs, but got {len(active_urls)}"
+
+def test_get_chunk_ids_by_source(mysql_manager, session):
+    """
+    Test get_chunk_ids_by_source method to ensure it correctly fetches chunk IDs 
+    for the given source URL.
+    """
+    # Step 1: Insert a web page and its associated chunks into the database.
+    source_url = "https://example.com"
+    
+    # Insert the web page
+    mysql_manager.insert_web_page(session, source_url, refresh_freq=None)
+
+    # Query to get the web page
+    sql_stmt = select(WebPage).filter_by(source=source_url)
+    web_page = session.scalars(sql_stmt).first()
+
+    # Ensure web page was added correctly
+    assert web_page is not None
+    assert web_page.source == source_url
+    
+    # Insert chunks associated with this web page
+    chunk_ids = ['chunk1', 'chunk2', 'chunk3']
+    chunk_info_list = [{'id': chunk_id, 'source': source_url} for chunk_id in chunk_ids]
+    mysql_manager.insert_web_page_chunks(session, chunk_info_list)
+
+    # Step 2: Fetch chunk IDs by source URL
+    fetched_chunk_ids = mysql_manager.get_chunk_ids_by_source(session, source_url)
+
+    # Step 3: Verify the fetched chunk IDs match the inserted chunk IDs
+    assert isinstance(fetched_chunk_ids, list)  # Ensure the return type is a list
+    assert len(fetched_chunk_ids) == len(chunk_ids)  # Ensure the count matches
+    assert set(fetched_chunk_ids) == set(chunk_ids)  # Ensure the IDs match

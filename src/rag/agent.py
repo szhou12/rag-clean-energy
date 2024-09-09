@@ -121,6 +121,19 @@ class RAGAgent:
         self.scraper.fetch_active_urls_from_db()
 
         return len(docs), len(newly_downloaded_files)
+    
+    def update_url(self, url: str):
+        """
+        Update the content of a given URL by re-scraping and re-embedding the content.
+
+        :param url: The URL to update content for.
+        """
+        doc = self.scraper.load_url(url)
+        if doc is None:
+            print(f"Failed to load URL: {url}")
+            return
+        
+        
 
     def process_file(self, file):
         """

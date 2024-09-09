@@ -68,7 +68,9 @@ class WebScraper:
             # Parse the parent URL to get the base for comparison with neighbor URLs
             current_url_parsed = urlparse(current_url)
             # Update
-            doc = self._langchain_load_url(current_url) # doc := List[Document]. one doc = one whole web page content without split
+            if current_url in self.scraped_urls: # skip if current URL is already scraped
+                continue
+            doc = self.load_url(current_url) # doc = List[Document] or None. one doc = one whole web page content without split
             if doc:
                 docs.extend(doc)
                 pages_scraped += 1
@@ -111,7 +113,7 @@ class WebScraper:
         return docs, newly_downloaded_files
                     
 
-    def _langchain_load_url(self, url):
+    def load_url(self, url):
         """
         Use Langchain to load the content of a web page from a given URL.
         Record the URL that's been successfully scraped by Langchain in the set
@@ -123,10 +125,6 @@ class WebScraper:
         """
 
         if url == "":
-            return None
-
-        if url in self.scraped_urls:
-            print(f"URL already scraped: {url}")
             return None
         
         # Load the content from the URL

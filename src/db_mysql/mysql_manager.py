@@ -1,7 +1,7 @@
 # src/db_mysql/mysql_manager.py
 
 from db_mysql.dom import Base, WebPage, WebPageChunk
-from sqlalchemy import create_engine, insert
+from sqlalchemy import create_engine, insert, select
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -43,7 +43,8 @@ class MySQLManager:
         cur_checksum = hashlib.sha256(url.encode('utf-8')).hexdigest()
         # Check if URL is already in the database
         # SELECT first row FROM WebPage WHERE checksum = cur_checksum
-        existing_page = session.query(WebPage).filter_by(checksum=cur_checksum).first()
+        sql_stmt = select(WebPage).filter_by(checksum=cur_checksum)
+        existing_page = session.scalars(sql_stmt).first()
         if existing_page:
             return existing_page
         return None
@@ -129,9 +130,10 @@ class MySQLManager:
         """
         try:
             # Query all URLs from the WebPage table using the provided session
-            urls = session.query(WebPage.source).all()
+            sql_stmt = select(WebPage.source)
+            urls = session.scalars(sql_stmt).all()
             # Extract URLs from the query result
-            return {url[0] for url in urls}
+            return set(urls)
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching URLs: {e}")
             return set()
@@ -147,7 +149,8 @@ class MySQLManager:
         """
         try:
             # Query all WebPage objects from the database
-            web_pages = session.query(WebPage).all()
+            sql_stmt = select(WebPage)
+            web_pages = session.scalars(sql_stmt).all()
             # Filter URLs that don't need a refresh: either None or Not due
             active_urls = {web_page.source for web_page in web_pages if not web_page.is_refresh_needed()}
 
@@ -156,4 +159,21 @@ class MySQLManager:
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching active URLs: {e}")
             return set()
+        
+    def get_chunk_ids_by_source(self, session, source):
+        """
+        Get all chunk IDs for the given the source.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param source: The source URL to match.
+        :return: List of chunk IDs whose source matches the input.
+        """
+        try:
+            # Query all WebPageChunk objects that match the source URL
+            sql_stmt = select(WebPageChunk.id).filter_by(source=source)
+            chunk_ids = session.scalars(sql_stmt).all()
+            return chunk_ids
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs: {e}")
+            return []
 
