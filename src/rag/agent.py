@@ -81,46 +81,35 @@ class RAGAgent:
         :return: None
         """
         # Step 1: Scrape content from the URL
-        docs, newly_downloaded_files = self.scraper.scrape(url, max_pages, autodownload)
+        web_pages, newly_downloaded_files = self.scraper.scrape(url, max_pages, autodownload)
 
-        # Step 2: Categorize the documents into new, expired, and up-to-date
+        # Step 2: Categorize the web_pages into new, expired, and up-to-date
         # TODO: handle expired_docs, up_to_date_docs later
-        new_docs, expired_docs, up_to_date_docs = self._categorize_documents(docs)
+        new_web_pages, expired_web_pages, up_to_date_web_pages = self._categorize_documents(web_pages)
 
         # Step 3: Extract metadata for the new documents
-        # new_docs_metadata = [{'source': source, 'refresh_frequency': freq}, ...]
-        new_docs_metadata = self.extract_metadata(new_docs, refresh_frequency)
+        # new_web_pages_metadata = [{'source': source, 'refresh_frequency': freq}, ...]
+        new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency)
 
         # Step 4: Clean content before splitting
         # clean up \n and whitespaces to obtain compact text
-        self.clean_page_content(new_docs)
+        self.clean_page_content(new_web_pages)
         
         # Step 5: Split content into manageable chunks
-        chunks = self.split_text(new_docs)
-        
-        # Step 6: Embed each chunk (Document) and save to the vector store
-        # chunk_metadata_list = [{'source': source, 'id': chunk_id}, ...]
-        chunk_metadata_list = self.vector_store.add_documents(chunks)
+        new_web_pages_chunks = self.split_text(new_web_pages)
 
-        # Step 7: Open a MySQL session and insert metadata of web pages and chunks
-        session = self.mysql_manager.create_session()
+        # Step 6: Insert data: insert content into Chroma, insert metadata into MySQL
+        # chunk_metadata_list = [{'source': source, 'id': chunk_id}, ...]
         try:
-            # Insert web page metadata for the new documents
-            self.mysql_manager.insert_web_pages(session, new_docs_metadata)
-            # Insert chunk metadata (source URL and chunk ID) for each chunk
-            self.mysql_manager.insert_web_page_chunks(session, chunk_metadata_list)
-            # Commit the transaction once both web page metadata and chunk metadata are inserted
-            session.commit()
-        except Exception as e:
-            session.rollback()  # Rollback the session on error
-            print(f"An error occurred while inserting into MySQL: {e}")
-        finally:
-            self.mysql_manager.close_session(session)
+            chunk_metadata_list = self.insert_data(docs_metadata=new_web_pages_metadata, chunks=new_web_pages_chunks)
+            print("Data successfully inserted into both Chroma and MySQL.")
+        except RuntimeError as e:
+            print(f"Failed to process URL due to an error: {e}")
 
         # Reset self.scraped_urls in WebScraper instance
         self.scraper.fetch_active_urls_from_db()
 
-        return len(docs), len(newly_downloaded_files)
+        return len(web_pages), len(newly_downloaded_files)
     
     def update_url(self, url: str):
         """
@@ -128,11 +117,23 @@ class RAGAgent:
 
         :param url: The URL to update content for.
         """
-        doc = self.scraper.load_url(url)
-        if doc is None:
+        web_page = self.scraper.load_url(url)
+        if web_page is None:
             print(f"Failed to load URL: {url}")
             return
         
+        session = self.mysql_manager.create_session()
+        try:
+            chunk_ids = self.mysql_manager.get_chunk_ids_by_source(url)
+        finally:
+            self.mysql_manager.close_session(session)
+        
+        if not chunk_ids:
+            print(f"No chunks found for URL: {url}")
+            return
+        
+        # delete all records in Chroma vector store for the given chunk_ids
+        self.vector_store.delete(ids=chunk_ids)
         
 
     def process_file(self, file):
@@ -398,4 +399,48 @@ class RAGAgent:
                 print(f"Source not found in metadata: {doc.metadata}")
 
         return document_info_list
+    
+
+    def insert_data(self, docs_metadata, chunks):
+        """
+        Wrapper function to handle atomic insertion into Chroma (for embeddings) and MySQL (for metadata).
+        Implements the manual two-phase commit (2PC) pattern.
+        
+        :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL.
+        :param chunks: List[Document] - Chunks of document text to be inserted into Chroma.
+        :raises: Exception if any part of the insertion process fails.
+        :return: List[dict] chunk_metadata_list - Metadata of chunks inserted into Chroma.
+        """
+        session = self.mysql_manager.create_session()
+        try:
+            # Step 1: Insert embeddings into Chroma (vector store)
+            chunks_metadata = self.vector_store.add_documents(chunks)  # Embedding vectors to Chroma
+
+            # Step 2: Insert metadata into MySQL
+            self.mysql_manager.insert_web_page_metadata(session, docs_metadata, chunks_metadata)
+
+            # Step 3: Commit MySQL transaction
+            session.commit()
+
+            # If both steps succeed, return the chunk metadata
+            return chunks_metadata
+
+        except Exception as e:
+            # Rollback MySQL transaction if any error occurs
+            session.rollback()
+            print(f"Error during data insertion into Chroma and MySQL: {e}")
+
+            # Rollback Chroma changes if MySQL fails
+            try:
+                chunk_ids = [item['id'] for item in chunks_metadata]
+                self.vector_store.delete(chunk_ids)  # Delete embeddings by ids in Chroma
+            except Exception as chroma_rollback_error:
+                print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
+
+            raise RuntimeError(f"Data insertion failed: {e}")
+        
+        finally:
+            self.mysql_manager.close_session(session)
+        
+
 

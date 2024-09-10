@@ -1,7 +1,7 @@
 # src/db_mysql/mysql_manager.py
 
 from db_mysql.dom import Base, WebPage, WebPageChunk
-from sqlalchemy import create_engine, insert, select
+from sqlalchemy import create_engine, insert, select, delete
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -34,6 +34,32 @@ class MySQLManager:
     def close_session(self, session):
         """Close the session."""
         session.close()
+
+    def insert_web_page_metadata(self, session, web_pages_metadata, web_page_chunks_metadata):
+        """
+        Insert web pages and their associated chunks in one operation.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param web_pages_metadata: List[dict] [{'source': source, 'refresh_freq': freq}, {...}] - Metadata for web pages.
+        :param web_page_chunks_metadata: List[dict] [{'id': uuid4, 'source': source}, {...}] - Metadata for the associated chunks.
+        :raises: Exception if insertion fails.
+        :return: None
+        """
+        try:
+            if not web_pages_metadata or not web_page_chunks_metadata:
+                raise ValueError("No valid data to insert into MySQL.")
+            
+            # Insert web pages
+            self.insert_web_pages(session, web_pages_metadata)
+
+            # Insert web page chunks
+            self.insert_web_page_chunks(session, web_page_chunks_metadata)
+
+        except SQLAlchemyError as e:
+            session.rollback()  # Rollback the transaction in case of error
+            raise RuntimeError(f"Error inserting WebPages and WebPageChunks: {e}")
+            
+
 
     def check_web_page_exists(self, session, url):
         """
@@ -72,10 +98,6 @@ class MySQLManager:
         :return: List[int] - List of IDs for the inserted web pages.
         """
         try:
-            if not document_info_list:
-                print("No valid data to insert.")
-                return
-            
             # Add the checksum to each entry
             for document in document_info_list:
                 source = document.get('source')
@@ -104,17 +126,39 @@ class MySQLManager:
         :param session: SQLAlchemy session to interact with the database.
         :param document_info_list: List[dict] [{'id': uuid4, 'source': source}, {...}]
         """
-        try:
-            if not document_info_list:
-                print("No valid data to insert.")
-                return
-            
+        try:            
             # Perform bulk insert using ORM's insert statement and Session.execute()
             sql_stmt = insert(WebPageChunk)  # ORM insert statement
             session.execute(sql_stmt, document_info_list)
         except SQLAlchemyError as e:
             session.rollback()
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
+
+    def delete_web_page_chunks(self, session, chunk_ids):
+        """
+        Delete web page chunks that match the given list of chunk IDs.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param chunk_ids: List of chunk IDs to delete.
+        :return: None
+        """
+        if not chunk_ids:
+            print("No chunk IDs provided for deletion.")
+            return
+
+        try:
+            # Create a delete statement with a filter for the chunk IDs
+            sql_stmt = delete(WebPageChunk).where(WebPageChunk.id.in_(chunk_ids))
+
+            # Execute the statement
+            session.execute(sql_stmt)
+
+            # Commit the transaction to finalize the deletion
+            session.commit()
+
+        except SQLAlchemyError as e:
+            session.rollback()  # Rollback in case of error
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
 
     def close(self):
         """Close the database engine."""
@@ -174,6 +218,6 @@ class MySQLManager:
             chunk_ids = session.scalars(sql_stmt).all()
             return chunk_ids
         except SQLAlchemyError as e:
-            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs: {e}")
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for {source}: {e}")
             return []
 
