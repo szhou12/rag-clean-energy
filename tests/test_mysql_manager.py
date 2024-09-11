@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import os
 from db_mysql.dom import Base, WebPage, WebPageChunk
 from db_mysql import MySQLManager
+import time
 
 # Setup test database configuration
 TEST_DB_CONFIG = {
@@ -200,9 +201,113 @@ def test_get_chunk_ids_by_source(mysql_manager, session):
     mysql_manager.insert_web_page_chunks(session, chunk_info_list)
 
     # Step 2: Fetch chunk IDs by source URL
-    fetched_chunk_ids = mysql_manager.get_chunk_ids_by_source(session, source_url)
+    fetched_chunk_ids = mysql_manager.get_chunk_ids_by_single_source(session, source_url)
 
     # Step 3: Verify the fetched chunk IDs match the inserted chunk IDs
     assert isinstance(fetched_chunk_ids, list)  # Ensure the return type is a list
     assert len(fetched_chunk_ids) == len(chunk_ids)  # Ensure the count matches
     assert set(fetched_chunk_ids) == set(chunk_ids)  # Ensure the IDs match
+
+def test_update_single_web_page_date(mysql_manager, session):
+    """
+    Test the update_single_web_page_date method to ensure it correctly resets the date
+    for a specific web page URL.
+    """
+    url = "https://example-single-update.com"
+    
+    # Insert the web page
+    mysql_manager.insert_web_page(session, url, refresh_freq=None)
+
+    # Query to get the initial web page details
+    sql_stmt = select(WebPage).filter_by(source=url)
+    web_page = session.scalars(sql_stmt).first()
+
+    # Ensure web page was added correctly
+    assert web_page is not None
+    old_date = web_page.date
+
+    # Add a small delay to ensure the date change
+    time.sleep(1)  # 1 second delay
+
+    # Update the date of the single web page
+    mysql_manager.update_single_web_page_date(session, url)
+
+    # Fetch the updated web page details
+    web_page_updated = session.scalars(sql_stmt).first()
+
+    # Ensure the date has been updated
+    assert web_page_updated.date > old_date, "The date was not updated correctly."
+
+
+def test_update_web_pages_date(mysql_manager, session):
+    """
+    Test that multiple web pages' dates are updated correctly.
+    """
+    urls = ["https://example11.com", "https://example12.com"]
+    
+    # Insert the web pages
+    for url in urls:
+        mysql_manager.insert_web_page(session, url, refresh_freq=7)
+    
+    # Get the inserted web pages and check the dates
+    sql_stmt = select(WebPage).filter(WebPage.source.in_(urls))
+    pages = session.scalars(sql_stmt).all()
+    old_dates = [page.date for page in pages]
+
+    # Add a small delay to ensure the date change
+    time.sleep(1)  # 1 second delay
+    
+    # Call the method to update the pages' dates
+    mysql_manager.update_web_pages_date(session, urls)
+    
+    # Fetch the updated pages and check if the dates were updated
+    pages = session.scalars(sql_stmt).all()
+    for i, page in enumerate(pages):
+        assert page.date > old_dates[i], f"The date for {page.source} should be updated."
+
+
+def test_delete_web_page_chunks_by_ids(mysql_manager, session):
+    """
+    Test that web page chunks are deleted correctly by chunk IDs.
+    """
+    url = "https://example-delete-web-page.com"
+    
+    # Insert the web page
+    mysql_manager.insert_web_page(session, url, refresh_freq=7)
+    
+    # Insert some chunks associated with the web page
+    chunk_info_list = [{'id': '0001', 'source': url}, {'id': '0002', 'source': url}]
+    mysql_manager.insert_web_page_chunks(session, chunk_info_list)
+    
+    # Confirm the chunks were inserted
+    sql_stmt = select(WebPageChunk).filter_by(source=url)
+    chunks = session.scalars(sql_stmt).all()
+    assert len(chunks) == len(chunk_info_list), "WebPageChunks are not correctly inserted."
+    
+    # Delete the chunks by IDs
+    chunk_ids = ['0001', '0002']
+    mysql_manager.delete_web_page_chunks_by_ids(session, chunk_ids)
+    
+    # Confirm the chunks were deleted
+    chunks = session.scalars(sql_stmt).all()
+    assert len(chunks) == 0, "WebPageChunks are not correctly deleted."
+
+
+def test_insert_web_pages_no_commit(mysql_manager, session):
+    """
+    Test inserting multiple web pages without committing the session to ensure rollback works.
+    """
+    url = "https://example14.com"
+    document_info = [{'source': url, 'refresh_freq': 7}]
+    
+    # Insert a web page
+    mysql_manager.insert_web_pages(session, document_info)
+    
+    # Rollback the session without committing
+    session.rollback()
+    
+    # Check that the web page was not inserted
+    sql_stmt = select(WebPage).filter_by(source=url)
+    page = session.scalars(sql_stmt).first()
+    assert page is None, "The web page should not be inserted after a rollback."
+
