@@ -102,38 +102,36 @@ class RAGAgent:
         # chunk_metadata_list = [{'source': source, 'id': chunk_id}, ...]
         try:
             chunk_metadata_list = self.insert_data(docs_metadata=new_web_pages_metadata, chunks=new_web_pages_chunks)
-            print("Data successfully inserted into both Chroma and MySQL.")
+            print(f"Data successfully inserted into both Chroma and MySQL: {chunk_metadata_list}")
         except RuntimeError as e:
-            print(f"Failed to process URL due to an error: {e}")
+            print(f"Failed to insert data into Chroma and MySQL due to an error: {e}")
 
         # Reset self.scraped_urls in WebScraper instance
         self.scraper.fetch_active_urls_from_db()
 
         return len(web_pages), len(newly_downloaded_files)
     
-    def update_url(self, url: str):
+    def update_single_url(self, url: str):
         """
         Update the content of a given URL by re-scraping and re-embedding the content.
 
         :param url: The URL to update content for.
         """
-        web_page = self.scraper.load_url(url)
-        if web_page is None:
+        update_web_page = self.scraper.load_url(url)
+        
+        if update_web_page is None:
             print(f"Failed to load URL: {url}")
             return
-        
-        session = self.mysql_manager.create_session()
+
+        self.clean_page_content(update_web_page)
+
+        update_web_page_chunks = self.split_text(update_web_page)
+
         try:
-            chunk_ids = self.mysql_manager.get_chunk_ids_by_source(url)
-        finally:
-            self.mysql_manager.close_session(session)
-        
-        if not chunk_ids:
-            print(f"No chunks found for URL: {url}")
-            return
-        
-        # delete all records in Chroma vector store for the given chunk_ids
-        self.vector_store.delete(ids=chunk_ids)
+            chunk_metadata_list = self.update_data(source=url, chunks=update_web_page_chunks)
+            print(f"Data successfully updated in both Chroma and MySQL: {chunk_metadata_list}")
+        except RuntimeError as e:
+            print(f"Failed to update data in Chroma and MySQL due to an error: {e}")
         
 
     def process_file(self, file):
@@ -409,7 +407,7 @@ class RAGAgent:
         :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL.
         :param chunks: List[Document] - Chunks of document text to be inserted into Chroma.
         :raises: Exception if any part of the insertion process fails.
-        :return: List[dict] chunk_metadata_list - Metadata of chunks inserted into Chroma.
+        :return: List[dict] chunks_metadata - Metadata of chunks inserted into Chroma.
         """
         session = self.mysql_manager.create_session()
         try:
@@ -417,7 +415,8 @@ class RAGAgent:
             chunks_metadata = self.vector_store.add_documents(chunks)  # Embedding vectors to Chroma
 
             # Step 2: Insert metadata into MySQL
-            self.mysql_manager.insert_web_page_metadata(session, docs_metadata, chunks_metadata)
+            self.mysql_manager.insert_web_pages(session, docs_metadata)
+            self.mysql_manager.insert_web_page_chunks(session, chunks_metadata)
 
             # Step 3: Commit MySQL transaction
             session.commit()
@@ -431,16 +430,68 @@ class RAGAgent:
             print(f"Error during data insertion into Chroma and MySQL: {e}")
 
             # Rollback Chroma changes if MySQL fails
-            try:
-                chunk_ids = [item['id'] for item in chunks_metadata]
-                self.vector_store.delete(chunk_ids)  # Delete embeddings by ids in Chroma
-            except Exception as chroma_rollback_error:
-                print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
+            if 'chunks_metadata' in locals():
+                try:
+                    chunk_ids = [item['id'] for item in chunks_metadata]
+                    self.vector_store.delete(chunk_ids)  # Delete embeddings by ids in Chroma
+                except Exception as chroma_rollback_error:
+                    print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
 
-            raise RuntimeError(f"Data insertion failed: {e}")
+                raise RuntimeError(f"Data insertion failed: {e}")
         
         finally:
             self.mysql_manager.close_session(session)
         
+    def update_data(self, source, chunks):
+        """
+        Update data for a given source URL and chunks.
+        Implements atomic behavior using manual two-phase commit (2PC) pattern.
+        
+        :param source: Single URL of the web page being updated.
+        :param chunks: List[Document] - New chunks of document text to be inserted into Chroma.
+        :raises: RuntimeError if any part of the update process fails.
+        :return: List[dict] new_chunks_metadata - Metadata of new chunks inserted into Chroma.
+        """
+        session = self.mysql_manager.create_session()
+        try:
+            # Step 1: Get old chunk ids from MySQL by source
+            old_chunk_ids = self.mysql_manager.get_chunk_ids_by_single_source(session, source)
+
+            # Step 2: Delete old chunks by ids from Chroma
+            self.vector_store.delete(ids=old_chunk_ids)
+            # Step 3: Insert new chunks into Chroma (vector store), get new chunk ids.
+            new_chunks_metadata = self.vector_store.add_documents(chunks)
+
+            # Step 4: Update the 'date' field for WebPage in MySQL
+            self.mysql_manager.update_web_pages_date(session, [source])
+            # Step 5: Delete WebPageChunk by ids from MySQL
+            self.mysql_manager.delete_web_page_chunks_by_ids(session, old_chunk_ids)
+            # Step 6: Insert new WebPageChunk into MySQL
+            self.mysql_manager.insert_web_page_chunks(session, new_chunks_metadata)
+
+            # Step 7: Commit the MySQL transaction
+            session.commit()
+
+            # If all steps succeed, return the chunk metadata
+            return new_chunks_metadata
+            
+        except Exception as e:
+            # Rollback MySQL transaction if any error occurs
+            session.rollback()
+            print(f"Error updating data: {e}")
+            
+            # Rollback Chroma changes if MySQL fails
+            try:
+                # If we already inserted new chunks into Chroma, we need to delete them to maintain consistency
+                if 'new_chunks_metadata' in locals():
+                    new_chunk_ids = [item['id'] for item in new_chunks_metadata]
+                    self.vector_store.delete(new_chunk_ids)
+            except Exception as chroma_rollback_error:
+                print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
+
+            # Raise the error to indicate failure
+            raise RuntimeError(f"Data update failed: {e}")
+        finally:
+            self.mysql_manager.close_session(session)
 
 

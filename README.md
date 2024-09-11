@@ -124,7 +124,8 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 - 明天
 1. 爬过网页的更新和删除
 2. AI response template: 以投喂文本为主，增加citation功能
-3. 中英文embedding切换
+3. 中英文embedding切换。同时存入中英文两种文本，输出仅限中文。
+4. 优先引用储存的文本信息
 
 
 ## Troubleshooting
