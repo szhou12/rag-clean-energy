@@ -176,9 +176,9 @@ def test_get_active_urls_no_refresh_needed(mysql_manager, session):
     # Check that the length of the set is 0
     assert len(active_urls) == len(web_pages_metadata), f"Expected 0 active URLs, but got {len(active_urls)}"
 
-def test_get_chunk_ids_by_source(mysql_manager, session):
+def test_get_chunk_ids_by_single_source(mysql_manager, session):
     """
-    Test get_chunk_ids_by_source method to ensure it correctly fetches chunk IDs 
+    Test get_chunk_ids_by_single_source method to ensure it correctly fetches chunk IDs 
     for the given source URL.
     """
     # Step 1: Insert a web page and its associated chunks into the database.
@@ -207,6 +207,47 @@ def test_get_chunk_ids_by_source(mysql_manager, session):
     assert isinstance(fetched_chunk_ids, list)  # Ensure the return type is a list
     assert len(fetched_chunk_ids) == len(chunk_ids)  # Ensure the count matches
     assert set(fetched_chunk_ids) == set(chunk_ids)  # Ensure the IDs match
+
+
+def test_get_chunk_ids_by_sources(mysql_manager, session):
+    """
+    Test get_chunk_ids_by_sources method to ensure it correctly fetches chunk IDs 
+    for the given list of source URLs.
+    """
+    # Step 1: Insert multiple web pages and their associated chunks into the database
+    sources = ["https://example-source-1.com", "https://example-source-2.com", "https://example-source-3.com"]
+
+    # Insert the web pages
+    web_pages_metadata = [
+        {'source': sources[0], 'refresh_freq': 5},
+        {'source': sources[1], 'refresh_freq': 6},
+        {'source': sources[2], 'refresh_freq': 7},
+    ]
+    mysql_manager.insert_web_pages(session, web_pages_metadata)
+
+    # Insert chunks associated with these web pages
+    chunk_ids_for_source1 = ['chunk1', 'chunk2']
+    chunk_ids_for_source2 = ['chunk3', 'chunk4']
+    chunk_ids_for_source3 = ['chunk5', 'chunk6']
+
+    chunk_info_list = [
+        {'id': chunk_id, 'source': sources[0]} for chunk_id in chunk_ids_for_source1
+    ] + [
+        {'id': chunk_id, 'source': sources[1]} for chunk_id in chunk_ids_for_source2
+    ] + [
+        {'id': chunk_id, 'source': sources[2]} for chunk_id in chunk_ids_for_source3
+    ]
+    mysql_manager.insert_web_page_chunks(session, chunk_info_list)
+
+    # Step 2: Fetch chunk IDs by list of source URLs
+    fetched_chunk_ids = mysql_manager.get_chunk_ids_by_sources(session, sources)
+
+    # Step 3: Verify the fetched chunk IDs match the inserted chunk IDs
+    all_chunk_ids = chunk_ids_for_source1 + chunk_ids_for_source2 + chunk_ids_for_source3
+
+    assert isinstance(fetched_chunk_ids, list), "Expected 'list' but got {type(fetched_chunk_ids)}"
+    assert len(fetched_chunk_ids) == len(all_chunk_ids), f"Expected {len(all_chunk_ids)} chunk IDs, but got {len(fetched_chunk_ids)}"
+    assert set(fetched_chunk_ids) == set(all_chunk_ids), "Fetched chunk IDs do not match the expected IDs"
 
 def test_update_single_web_page_date(mysql_manager, session):
     """

@@ -246,5 +246,25 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for {source}: {e}")
             return []
         
+    def get_chunk_ids_by_sources(self, session, sources: list[str]):
+        """
+        Get all chunk IDs for the given list of sources.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param sources: List of source URLs to match.
+        :return: List of chunk IDs whose sources match the input list.
+        """
+        if not sources:
+            return []  # Early return if no sources are provided
+
+        try:
+            # Query all WebPageChunk objects that match any of the source URLs in the list
+            sql_stmt = select(WebPageChunk.id).where(WebPageChunk.source.in_(sources))
+            chunk_ids = session.scalars(sql_stmt).all()
+            return chunk_ids
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for batch sources {sources}: {e}")
+            return []
+        
     
 

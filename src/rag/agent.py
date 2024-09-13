@@ -132,6 +132,9 @@ class RAGAgent:
             print(f"Data successfully updated in both Chroma and MySQL: {chunk_metadata_list}")
         except RuntimeError as e:
             print(f"Failed to update data in Chroma and MySQL due to an error: {e}")
+
+        # Reset self.scraped_urls in WebScraper instance
+        self.scraper.fetch_active_urls_from_db()
         
 
     def process_file(self, file):
@@ -444,7 +447,7 @@ class RAGAgent:
         
     def update_data(self, source, chunks):
         """
-        Update data for a given source URL and chunks.
+        Update data for a SINGLE source URL and its chunks.
         Implements atomic behavior using manual two-phase commit (2PC) pattern.
         
         :param source: Single URL of the web page being updated.
@@ -454,24 +457,27 @@ class RAGAgent:
         """
         session = self.mysql_manager.create_session()
         try:
-            # Step 1: Get old chunk ids from MySQL by source
+            # Step 1: Get
+            # 1-1: MySQL: Get old chunk ids by source
             old_chunk_ids = self.mysql_manager.get_chunk_ids_by_single_source(session, source)
-            # Step 2: Get old documents from Chroma before deletion (for potential rollback)
+            # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
             old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
 
-            # Step 3: Delete old chunks by ids from Chroma
-            self.vector_store.delete(ids=old_chunk_ids)
-            # Step 4: Insert new chunks into Chroma (vector store), get new chunk ids.
-            new_chunks_metadata = self.vector_store.add_documents(chunks)
-
-            # Step 5: Update the 'date' field for WebPage in MySQL
-            self.mysql_manager.update_web_pages_date(session, [source])
-            # Step 6: Delete WebPageChunk by ids from MySQL
+            # Step 2: Delete
+            # 2-1: MySQL: Delete WebPageChunk by old ids
             self.mysql_manager.delete_web_page_chunks_by_ids(session, old_chunk_ids)
-            # Step 7: Insert new WebPageChunk into MySQL
+            # 2-2: Chroma: Delete old chunks by old ids
+            self.vector_store.delete(ids=old_chunk_ids)
+
+            # Step 3: Upsert
+            # 3-1: MySQL: Update the 'date' field for WebPage
+            self.mysql_manager.update_web_pages_date(session, [source])
+            # 3-2: Chroma: Insert new chunks into Chroma, get new chunk ids.
+            new_chunks_metadata = self.vector_store.add_documents(chunks)
+            # 3-3: MySQL: Insert new WebPageChunk into MySQL
             self.mysql_manager.insert_web_page_chunks(session, new_chunks_metadata)
 
-            # Step 8: Commit the MySQL transaction
+            # Step 4: Commit MySQL transaction
             session.commit()
 
             # If all steps succeed, return the chunk metadata
