@@ -1,6 +1,6 @@
 # src/db_mysql/mysql_manager.py
 
-from db_mysql.dom import Base, WebPage, WebPageChunk
+from db_mysql.dao import Base, WebPage, WebPageChunk
 from sqlalchemy import create_engine, insert, select, delete, update
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker

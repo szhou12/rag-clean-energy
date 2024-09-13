@@ -3,7 +3,7 @@ from sqlalchemy import delete, select
 from sqlalchemy_utils import database_exists, create_database, drop_database
 from datetime import datetime, timedelta
 import os
-from db_mysql.dom import Base, WebPage, WebPageChunk
+from db_mysql.dao import Base, WebPage, WebPageChunk
 from db_mysql import MySQLManager
 import time
 

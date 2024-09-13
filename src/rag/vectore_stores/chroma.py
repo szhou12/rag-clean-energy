@@ -24,6 +24,13 @@ class ChromaVectorStore(VectorStore):
             persist_directory=self._persist_directory,
         )
 
+    def as_retriever(self, **kwargs):
+        """
+        Wrapper of as_retriever() method of Chroma class.
+        Ref: https://python.langchain.com/v0.2/api_reference/chroma/vectorstores/langchain_chroma.vectorstores.Chroma.html#langchain_chroma.vectorstores.Chroma.as_retriever
+        """
+        return self.vector_store.as_retriever(**kwargs)
+
     def add_documents(self, documents):
         """
         Add documents to the vector store.
@@ -57,14 +64,7 @@ class ChromaVectorStore(VectorStore):
             raise RuntimeError(f"Failed to add documents to Chroma: {e}")
 
     
-    def as_retriever(self, **kwargs):
-        """
-        Wrapper of as_retriever() method of Chroma class.
-        Ref: https://python.langchain.com/v0.2/api_reference/chroma/vectorstores/langchain_chroma.vectorstores.Chroma.html#langchain_chroma.vectorstores.Chroma.as_retriever
-        """
-        return self.vector_store.as_retriever(**kwargs)
-    
-    def delete(self, ids):
+    def delete(self, ids: list[str]):
         """
         Delete documents by assigned ids from the vector store.
 
@@ -75,6 +75,20 @@ class ChromaVectorStore(VectorStore):
             self.vector_store.delete(ids=ids)
         except Exception as e:
             raise RuntimeError(f"Error while deleting from Chroma: {e}")
+        
+    def get_documents_by_ids(self, ids: list[str]):
+        """
+        Retrieve documents from the vector store by their unique IDs using Chroma's `get_by_ids`.
+
+        :param ids: List of document IDs to retrieve.
+        :return: List of Document objects corresponding to the provided IDs.
+        :raises: RuntimeError if document retrieval fails.
+        """
+        try:
+            documents = self.vector_store.get_by_ids(ids=ids)
+            return documents
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve documents by IDs from Chroma: {e}")
 
     # TODO
     def similarity_search(self, query, k=4):
