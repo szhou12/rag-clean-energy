@@ -1,6 +1,7 @@
 # project/src/rag/vector_stores/chroma.py
 import os
 from uuid import uuid4
+from typing import Optional
 from langchain_chroma import Chroma
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from .base_vectore_store import VectorStore
@@ -31,17 +32,23 @@ class ChromaVectorStore(VectorStore):
         """
         return self.vector_store.as_retriever(**kwargs)
 
-    def add_documents(self, documents):
+    def add_documents(self, documents, ids: Optional[list[str]] = None):
         """
         Add documents to the vector store.
         Note: if the input documents contains ids and also give .add_documents() ids in the kwargs (ids=uuids), then ids=uuids will take precedence.
         Think of each given uuid as unique identifier of one record stored in Database.
 
         :param documents: List[Document]
+        :param ids: List[str] (optional) - Predefined UUIDs for the documents. If None or length mismatch, new UUIDs will be generated.
         :return: List[dict] [{'id': uuid4, 'source': source}, {...}]
-        :raises: RuntimeError if the embedding insertion fails or document's source not found.
+        :raises: RuntimeError if the embedding insertion fails or document's source is not found.
         """
         try:
+            if ids is None or len(ids) != len(documents):
+                uuids = [str(uuid4()) for _ in range(len(documents))]
+            else:
+                uuids = ids
+
             # Generate UUIDs and extract sources
             document_info_list = []
 

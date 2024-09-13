@@ -412,7 +412,7 @@ class RAGAgent:
         session = self.mysql_manager.create_session()
         try:
             # Step 1: Insert embeddings into Chroma (vector store)
-            chunks_metadata = self.vector_store.add_documents(chunks)  # Embedding vectors to Chroma
+            chunks_metadata = self.vector_store.add_documents(documents=chunks)  # Embedding vectors to Chroma
 
             # Step 2: Insert metadata into MySQL
             self.mysql_manager.insert_web_pages(session, docs_metadata)
@@ -433,7 +433,7 @@ class RAGAgent:
             if 'chunks_metadata' in locals():
                 try:
                     chunk_ids = [item['id'] for item in chunks_metadata]
-                    self.vector_store.delete(chunk_ids)  # Delete embeddings by ids in Chroma
+                    self.vector_store.delete(ids=chunk_ids)  # Delete embeddings by ids in Chroma
                 except Exception as chroma_rollback_error:
                     print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
 
@@ -456,20 +456,22 @@ class RAGAgent:
         try:
             # Step 1: Get old chunk ids from MySQL by source
             old_chunk_ids = self.mysql_manager.get_chunk_ids_by_single_source(session, source)
+            # Step 2: Get old documents from Chroma before deletion (for potential rollback)
+            old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
 
-            # Step 2: Delete old chunks by ids from Chroma
+            # Step 3: Delete old chunks by ids from Chroma
             self.vector_store.delete(ids=old_chunk_ids)
-            # Step 3: Insert new chunks into Chroma (vector store), get new chunk ids.
+            # Step 4: Insert new chunks into Chroma (vector store), get new chunk ids.
             new_chunks_metadata = self.vector_store.add_documents(chunks)
 
-            # Step 4: Update the 'date' field for WebPage in MySQL
+            # Step 5: Update the 'date' field for WebPage in MySQL
             self.mysql_manager.update_web_pages_date(session, [source])
-            # Step 5: Delete WebPageChunk by ids from MySQL
+            # Step 6: Delete WebPageChunk by ids from MySQL
             self.mysql_manager.delete_web_page_chunks_by_ids(session, old_chunk_ids)
-            # Step 6: Insert new WebPageChunk into MySQL
+            # Step 7: Insert new WebPageChunk into MySQL
             self.mysql_manager.insert_web_page_chunks(session, new_chunks_metadata)
 
-            # Step 7: Commit the MySQL transaction
+            # Step 8: Commit the MySQL transaction
             session.commit()
 
             # If all steps succeed, return the chunk metadata
@@ -486,6 +488,10 @@ class RAGAgent:
                 if 'new_chunks_metadata' in locals():
                     new_chunk_ids = [item['id'] for item in new_chunks_metadata]
                     self.vector_store.delete(new_chunk_ids)
+
+                # Restore old chunks to Chroma if they were deleted
+                if old_documents:
+                    self.vector_store.add_documents(documents=old_documents, ids=old_chunk_ids)
             except Exception as chroma_rollback_error:
                 print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
 
