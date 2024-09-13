@@ -352,3 +352,38 @@ def test_insert_web_pages_no_commit(mysql_manager, session):
     page = session.scalars(sql_stmt).first()
     assert page is None, "The web page should not be inserted after a rollback."
 
+def test_delete_web_pages_by_sources(mysql_manager, session):
+    """
+    Test deleting web pages by a list of source URLs.
+    """
+    # Step 1: Insert web pages into the database
+    web_pages_metadata = [
+        {'source': 'https://example-delete-10.com', 'refresh_freq': 7},
+        {'source': 'https://example-delete-11.com', 'refresh_freq': 10},
+        {'source': 'https://example-delete-12.com', 'refresh_freq': None}
+    ]
+    
+    mysql_manager.insert_web_pages(session, web_pages_metadata)
+    
+    # Verify that the web pages were inserted
+    sql_stmt = select(WebPage).filter(WebPage.source.in_([d['source'] for d in web_pages_metadata]))
+    inserted_pages = session.scalars(sql_stmt).all()
+    assert len(inserted_pages) == len(web_pages_metadata)
+    
+    # Step 2: Delete some of the web pages
+    sources_to_delete = ['https://example-delete-10.com', 'https://example-delete-12.com']
+    mysql_manager.delete_web_pages_by_sources(session, sources_to_delete)
+    
+    # Commit the changes
+    session.commit()
+    
+    # Step 3: Verify that the web pages were deleted
+    remaining_pages_sql_stmt = select(WebPage).filter(WebPage.source.in_(sources_to_delete))
+    remaining_pages = session.scalars(remaining_pages_sql_stmt).all()
+    assert len(remaining_pages) == 0  # These should have been deleted
+    
+    # Verify that the non-deleted page is still present
+    still_exists_sql_stmt = select(WebPage).filter(WebPage.source == 'https://example-delete-11.com')
+    still_exists_page = session.scalars(still_exists_sql_stmt).first()
+    assert still_exists_page is not None
+    assert still_exists_page.source == 'https://example-delete-11.com'

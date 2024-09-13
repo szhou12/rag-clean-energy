@@ -506,4 +506,53 @@ class RAGAgent:
         finally:
             self.mysql_manager.close_session(session)
 
+    
+    def delete_data_by_sources(self, sources: list[str]):
+        """
+        Delete data for a list of sources from both MySQL and Chroma.
+        Implements atomic behavior using manual two-phase commit (2PC) pattern.
+        
+        :param sources: List of sources (e.g. URLs) of the web pages to be deleted.
+        :return: None
+        :raises: RuntimeError if any part of the deletion process fails.
+        """
+        session = self.mysql_manager.create_session()
+        try:
+            # Step 1: Get
+            # 1-1: MySQL: Get all chunk ids for the given sources using get_chunk_ids_by_sources
+            old_chunk_ids = self.mysql_manager.get_chunk_ids_by_sources(session, sources)
+            # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
+            old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
+
+            # Step 2: Delete
+            # 2-1: MySQL: Delete WebPageChunk by old chunk ids
+            self.mysql_manager.delete_web_page_chunks_by_ids(session, old_chunk_ids)
+            # 2-2: MySQL: Delete WebPages by sources
+            self.mysql_manager.delete_web_pages_by_sources(session, sources)
+            # 2-3: Chroma: Delete chunks by old chunk ids
+            self.vector_store.delete(ids=old_chunk_ids)
+
+            # Step 3: Commit MySQL transaction
+            session.commit()
+
+            print(f"Successfully deleted data for sources: {sources}")
+
+        except Exception as e:
+            # Rollback MySQL transaction if any error occurs
+            session.rollback()
+            print(f"Error deleting data for sources {sources}: {e}")
+            
+            # Rollback Chroma changes if MySQL fails
+            try:
+                # Restore old chunks to Chroma if they were deleted
+                if old_documents:
+                    self.vector_store.add_documents(documents=old_documents, ids=old_chunk_ids)
+            except Exception as chroma_rollback_error:
+                print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
+
+            # Raise the error to indicate failure
+            raise RuntimeError(f"Data deletion failed for sources {sources}: {e}")
+        finally:
+            self.mysql_manager.close_session(session)
+
 

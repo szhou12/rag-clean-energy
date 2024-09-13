@@ -132,7 +132,21 @@ class MySQLManager:
         except SQLAlchemyError as e:
             session.rollback()  # Rollback transaction in case of error
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPage: {e}")
+        
+    def insert_web_page_chunks(self, session, document_info_list):
+        """
+        Insert chunks associated with a web page in batch.
 
+        :param session: SQLAlchemy session to interact with the database.
+        :param document_info_list: List[dict] [{'id': uuid4, 'source': source}, {...}]
+        """
+        try:            
+            # Perform bulk insert using ORM's insert statement and Session.execute()
+            sql_stmt = insert(WebPageChunk)  # ORM insert statement
+            session.execute(sql_stmt, document_info_list)
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
 
     def update_web_pages_date(self, session, urls: list[str]):
         """
@@ -191,21 +205,27 @@ class MySQLManager:
             raise RuntimeError(f"Failed to update WebPage date for URL: {e}")
 
 
-
-    def insert_web_page_chunks(self, session, document_info_list):
+    def delete_web_pages_by_sources(self, session, sources: list[str]):
         """
-        Insert chunks associated with a web page in batch.
+        Delete web pages that match the given list of source URLs.
 
         :param session: SQLAlchemy session to interact with the database.
-        :param document_info_list: List[dict] [{'id': uuid4, 'source': source}, {...}]
+        :param sources: List of source URLs to delete.
+        :return: None
+        :raises: RuntimeError if the deletion fails.
         """
-        try:            
-            # Perform bulk insert using ORM's insert statement and Session.execute()
-            sql_stmt = insert(WebPageChunk)  # ORM insert statement
-            session.execute(sql_stmt, document_info_list)
+        if not sources:
+            print("No sources provided for deletion.")
+            return
+
+        try:
+            # Create a delete statement with a filter for the provided sources
+            sql_stmt = delete(WebPage).where(WebPage.source.in_(sources))
+            session.execute(sql_stmt)
+
         except SQLAlchemyError as e:
             session.rollback()
-            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
+            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting WebPages: {e}")
 
     def delete_web_page_chunks_by_ids(self, session, chunk_ids):
         """

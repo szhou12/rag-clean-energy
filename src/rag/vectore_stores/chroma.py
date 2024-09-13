@@ -51,8 +51,6 @@ class ChromaVectorStore(VectorStore):
 
             # Generate UUIDs and extract sources
             document_info_list = []
-
-            uuids = [str(uuid4()) for _ in range(len(documents))]
             
             for doc, uuid in zip(documents, uuids):
                 source = doc.metadata.get('source', None)  # file parser and scraper class will ensure 'source' NOT None
