@@ -27,6 +27,10 @@ st.title("Clean Energy AI Consultant \N{robot face}")
 # Initialize RAGAgent (ensure to pass necessary MySQL config)
 rag_agent = RAGAgent(mysql_config=mysql_config)
 
+# Initialize vector_store in session_state if not already set
+if "vector_store" not in st.session_state:
+    st.session_state.vector_store = rag_agent.vector_store
+
 # Chat history stored in session_state to persist across reloads
 if "chat_history" not in st.session_state:
     # Initialize with a welcome message
@@ -84,8 +88,20 @@ if user_query:
     # Call RAGAgent or fall back to a simpler response
     with st.chat_message("AI"):
         if "vector_store" not in st.session_state:  # Fallback to simple AI response
+            st.write("NOT triggering RAG Agent!!!")
             ai_response = st.write_stream(get_ai_response(user_query, st.session_state.chat_history))
         else:  # Use the RAGAgent's handle_query method to get response
+            st.write("triggering RAG Agent...")
+
+            #### Debug by inspecting ####
+            retrieved_docs_runnable = rag_agent._retrieve_contextual_info()
+            # Execute the Runnable to get the list of Documents
+            retrieved_docs = retrieved_docs_runnable.invoke({
+                "chat_history": st.session_state.chat_history,
+                "input": user_query
+            })
+            st.write(retrieved_docs)
+            
             ai_response = st.write_stream(rag_agent.handle_query(user_query, st.session_state.chat_history))
 
     # Append the AI response to the chat history

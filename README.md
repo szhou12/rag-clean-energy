@@ -122,10 +122,13 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 8. **TODO** Use `logging` to log errors and debug information
 
 - 明天
-1. 爬过网页的更新和删除
-2. AI response template: 以投喂文本为主，增加citation功能
-3. 中英文embedding切换。同时存入中英文两种文本，输出仅限中文。
-4. 优先引用储存的文本信息
+1. `RAGAgent`: update `refresh_frequency` by a given list of sources or map `{source: url, refresh_freq: 2}`?
+2. persist Chroma!!!
+    - 2 collections: one for English texts, another for Chinese texts
+    - add one more field in MySQL to indicate the language of the text
+3. AI response template: 以投喂文本为主，增加citation功能
+4. 中英文embedding切换。同时存入中英文两种文本，输出仅限中文。
+5. 优先引用储存的文本信息
 
 
 ## Troubleshooting

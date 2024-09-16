@@ -87,6 +87,10 @@ class RAGAgent:
         # TODO: handle expired_docs, up_to_date_docs later
         new_web_pages, expired_web_pages, up_to_date_web_pages = self._categorize_documents(web_pages)
 
+        if not new_web_pages:
+            print("No new web pages scraped")
+            return 0, 0
+
         # Step 3: Extract metadata for the new documents
         # new_web_pages_metadata = [{'source': source, 'refresh_frequency': freq}, ...]
         new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency)
@@ -102,7 +106,7 @@ class RAGAgent:
         # chunk_metadata_list = [{'source': source, 'id': chunk_id}, ...]
         try:
             chunk_metadata_list = self.insert_data(docs_metadata=new_web_pages_metadata, chunks=new_web_pages_chunks)
-            print(f"Data successfully inserted into both Chroma and MySQL: {chunk_metadata_list}")
+            print(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
         except RuntimeError as e:
             print(f"Failed to insert data into Chroma and MySQL due to an error: {e}")
 
@@ -244,6 +248,7 @@ class RAGAgent:
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
         ])
+
 
         retrieved_docs = create_history_aware_retriever(self.llm, vs_retriever, prompt)
         return retrieved_docs
