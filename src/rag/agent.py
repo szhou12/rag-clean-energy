@@ -6,6 +6,7 @@ from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
 from rag.embedders import OpenAIEmbedding, HuggingFaceBgeEmbedding
 from rag.vectore_stores import ChromaVectorStore
+from rag.text_processor import TextProcessor
 from db_mysql import MySQLManager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -15,7 +16,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
 class RAGAgent:
-    def __init__(self, mysql_config, llm="gpt-4o-mini", embedder='openai', vector_db=None, response_template=None):
+    def __init__(self, mysql_config: dict, llm: str = "gpt-4o-mini", embedder: str ='openai', vector_db: Optional[str] = None, response_template: Optional[str] = None) -> None:
         """
         Initialize the RAGAgent with necessary components.
         
@@ -23,10 +24,12 @@ class RAGAgent:
         :attr parser: File parser utility for parsing uploaded files
         :attr embedder: Embedding model to convert texts to embeddings (vectors)
 
-        :param llm: <str> Name of the language model (e.g., "gpt-4o-mini")
-        :param embedder: <str> Name of embedding model
-        :param vector_db: <str> Name of a vector store (e.g., Chroma). Used to constrcut persistent directory
-        :param response_template: Predefined template for formatting responses
+        :param mysql_config: (dict) - MySQL configuration dictionary
+        :param llm: (str) - Name of the language model (e.g., "gpt-4o-mini")
+        :param embedder: (str) - Name of embedding model
+        :param vector_db: (str | None) - Name of a vector store (e.g., Chroma). Used to constrcut persistent directory
+        :param response_template: (str | None) - Predefined template for formatting responses
+        :return: None
         """
 
         self.mysql_manager = MySQLManager(**mysql_config)
@@ -68,6 +71,8 @@ class RAGAgent:
                 <Conclusion>: give a proper conclusion
                 Your answer should cite sources for any numbers or statistics you provide.
                 """
+            
+        self.text_processor = TextProcessor()
         
 
     def process_url(self, url: str, max_pages: int = 1, autodownload: bool = False, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
@@ -97,11 +102,11 @@ class RAGAgent:
         new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency, language)
 
         # Step 4: Clean content before splitting
-        # clean up \n and whitespaces to obtain compact text
-        self.clean_page_content(new_web_pages)
+        self.text_processor.clean_page_content(new_web_pages)
         
         # Step 5: Split content into manageable chunks
-        new_web_pages_chunks = self.split_text(new_web_pages)
+        new_web_pages_chunks = self.text_processor.split_text(new_web_pages)
+
 
         # Step 6: Insert data: insert content into Chroma, insert metadata into MySQL
         # chunk_metadata_list = [{'source': source, 'id': chunk_id}, ...]
@@ -128,9 +133,9 @@ class RAGAgent:
             print(f"Failed to load URL: {url}")
             return
 
-        self.clean_page_content(update_web_page)
+        self.text_processor.clean_page_content(update_web_page)
 
-        update_web_page_chunks = self.split_text(update_web_page)
+        update_web_page_chunks = self.text_processor.split_text(update_web_page)
 
         try:
             chunk_metadata_list = self.update_data(source=url, chunks=update_web_page_chunks)
@@ -154,10 +159,10 @@ class RAGAgent:
         docs = parser.load_and_parse()
 
         # Step 2: Clean content before splitting
-        self.clean_page_content(docs)
+        self.text_processor.clean_page_content(docs)
 
         # Step 3: Split content into manageable chunks
-        chunks = self.split_text(docs)
+        chunks = self.text_processor.split_text(docs)
 
         # Step 4: Embed each chunk (Document) and save to the vector store
         chunk_ids = self.vector_store.add_documents(chunks)
@@ -165,36 +170,7 @@ class RAGAgent:
         # Step 4: Save embeddings and chunks to the vector store
         # self.vector_store.save(embeddings, chunks)
 
-    def split_text(self, docs):
-        """
-        Split the docs (List[Document]) into smaller chunks suitable for embedding.
-        
-        :param docs: List[Document]
-        :return: List[Document]
-        """
-        # Add additional separators customizing for Chinese texts
-        # Ref: https://python.langchain.com/v0.1/docs/modules/data_connection/document_transformers/recursive_text_splitter/
-        text_splitter = RecursiveCharacterTextSplitter(
-            separators=[
-                "\n\n",
-                "\n",
-                " ",
-                ".",
-                ",",
-                "\u200b",  # Zero-width space
-                "\uff0c",  # Fullwidth comma
-                "\u3001",  # Ideographic comma
-                "\uff0e",  # Fullwidth full stop
-                "\u3002",  # Ideographic full stop
-                "",
-            ],
-            # Existing args
-            chunk_size=1000,
-            chunk_overlap=200,
-            length_function=len
-        )
-        doc_chunks = text_splitter.split_documents(docs)
-        return doc_chunks
+
     
     def handle_query(self, user_query, chat_history):
         """
@@ -322,39 +298,6 @@ class RAGAgent:
         else:
             raise ValueError(f"Unsupported embedder type: {embedder_type}")
         
-    def clean_page_content(self, docs):
-        """
-        Clean up the page content of each document in the list.
-        Change happens in-place.
-
-        :param docs: List[Document]
-        """
-        for document in docs:
-            cleaned_content = self._clean_text(document.page_content)
-            document.page_content = cleaned_content
-    
-    def _clean_text(self, text: str) -> str:
-        """
-        Clean up text:
-        1. handle newline characters '\n'
-        2. handle whitespaces
-        3. other situations
-
-        :param text: The input text to clean.
-        :return: The cleaned text with repeated newlines removed.
-        """
-        # Remove UTF-8 BOM if present. its presence can cause issues in text processing
-        text = text.replace('\ufeff', '')
-
-        # Replace multiple newlines with a single newline, preserving paragraph structure
-        text = re.sub(r'\n{2,}', '\n\n', text)
-
-        # Replace all sequences of whitespace characters (spaces, tabs, etc.) excluding newline with a single space
-        text = re.sub(r'[^\S\n]+', ' ', text)
-
-        # Finally, strip leading and trailing whitespace (including newlines)
-        return text.strip()
-    
 
     def _categorize_documents(self, docs):
         """

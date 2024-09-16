@@ -120,7 +120,7 @@ with st.sidebar:
             with st.spinner("Scraping..."):
                 try:
                     # Call the RAGAgent's process_url method to scrape content
-                    num_docs, num_downloaded_files = rag_agent.process_url(url, max_pages=max_pages, autodownload=autodownload)
+                    num_docs, num_downloaded_files = rag_agent.process_url(url, max_pages=max_pages, autodownload=autodownload, language='en')
 
                     # Display the scraping results
                     st.success(f"Scraping completed! {num_docs} pages scraped.")
