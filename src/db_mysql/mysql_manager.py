@@ -95,28 +95,32 @@ class MySQLManager:
         return None
 
 
-    def insert_web_page(self, session, url, refresh_freq=None):
+    def insert_web_page(self, session, url, refresh_freq=None, language='en'):
         """
-        Insert a new web page if it does not exist.
+        Insert a new web page if it does not exist, with a specified language.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param url: URL of the web page.
+        :param refresh_freq: Refresh frequency in days for the web page. Default is None.
+        :param language: The language of the web page content (e.g., 'en', 'zh'). Default is 'en'.
         """
         try:
-            new_page = WebPage(source=url, freq=refresh_freq)
+            new_page = WebPage(source=url, freq=refresh_freq, language=language)
             session.add(new_page)
             session.commit()  # Commit transaction here
         except SQLAlchemyError as e:
             session.rollback()  # Rollback transaction in case of error
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error insert WebPage: {e}")
-            # raise  # Re-raise exception to handle it higher up if needed
 
     def insert_web_pages(self, session, document_info_list):
         """
         Insert multiple new web pages in batch.
 
         :param session: SQLAlchemy session to interact with the database.
-        :param document_info_list: List[dict] [{'source': source, 'refresh_freq': freq}, {...}]
+        :param document_info_list: List[dict] [{'source': source, 'refresh_freq': freq, 'language': language}, {...}]
         """
         try:
-            # Add url checksum & current date to each entry
+            # Add url checksum, current date, and language to each entry
             for document in document_info_list:
                 source = document.get('source')
                 if source:
@@ -124,10 +128,13 @@ class MySQLManager:
                     document['checksum'] = hashlib.sha256(source.encode('utf-8')).hexdigest()
                     # Add the current date for the web page
                     document['date'] = datetime.now()
+                    # Ensure language field is included, defaulting to 'en' if not provided
+                    if 'language' not in document:
+                        document['language'] = 'en'
 
             # Perform bulk insert using ORM's insert statement
             sql_stmt = insert(WebPage)  # Create an insert statement for the WebPage ORM model
-            session.execute(sql_stmt, document_info_list)  # Execute the bulk insert. Return Result object.
+            session.execute(sql_stmt, document_info_list)  # Execute the bulk insert
 
         except SQLAlchemyError as e:
             session.rollback()  # Rollback transaction in case of error

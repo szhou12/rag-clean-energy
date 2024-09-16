@@ -1,4 +1,4 @@
-# src/db_mysql/dom/models.py
+# src/db_mysql/dao/models.py
 
 from typing import Optional
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
@@ -21,24 +21,27 @@ class WebPage(Base):
     checksum = Column(String(64), unique=True, nullable=False) # SHA-256 checksum
     date = Column(DateTime, nullable=False)
     refresh_frequency = Column(Integer, nullable=True)  # Refresh frequency in days
+    language = Column(String(10), nullable=False, default='en')  # New column for language, default is 'en'
     
     # Define relationship with/Create a link to WebPageChunk
     chunks = relationship("WebPageChunk", back_populates="web_page")
 
-    def __init__(self, source: str, freq: Optional[int] = None):
+    def __init__(self, source: str, freq: Optional[int] = None, language: str = 'en'):
         """
         Initialize a WebPage instance.
         
         :param source: URL of the web page.
         :param freq: Frequency in days for refreshing the page. Default is None (no automatic refresh).
+        :param language: The language of the web page content (e.g., 'en', 'zh'). Default is 'en'.
         """
         self.source = source
         self.refresh_frequency = freq
+        self.language = language
         self.checksum = hashlib.sha256(source.encode('utf-8')).hexdigest()
         self.date = datetime.now()  # Set the current date as the last scraped date
 
     def __repr__(self):
-        return f'<WebPage(id={self.id}, url={self.source}, date={self.date}, refresh_frequency={self.refresh_frequency})>'
+        return f'<WebPage(id={self.id}, url={self.source}, date={self.date}, refresh_frequency={self.refresh_frequency}, language={self.language})>'
     
     def next_refresh_due(self):
         """

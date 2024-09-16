@@ -64,7 +64,8 @@ def session(mysql_manager):
 
 def test_insert_web_page(mysql_manager, session):
     url = "https://example.com"
-    mysql_manager.insert_web_page(session, url, refresh_freq=7)
+    language = "en"
+    mysql_manager.insert_web_page(session, url, refresh_freq=7, language=language)
     
     # Check if the web page was inserted
     sql_stmt = select(WebPage).filter_by(source=url)
@@ -72,6 +73,7 @@ def test_insert_web_page(mysql_manager, session):
     assert page is not None
     assert page.source == url
     assert page.refresh_frequency == 7
+    assert page.language == language
 
 def test_check_web_page_exists(mysql_manager, session):
     url = "https://example2.com"
@@ -88,9 +90,9 @@ def test_insert_web_pages(mysql_manager, session):
     Test bulk inserting multiple web pages into the database.
     """
     document_info_list = [
-        {'source': 'https://example3.com', 'refresh_freq': 5},
-        {'source': 'https://example4.com', 'refresh_freq': 10},
-        {'source': 'https://example5.com', 'refresh_freq': None}
+        {'source': 'https://example3.com', 'refresh_freq': 5, 'language': 'en'},
+        {'source': 'https://example4.com', 'refresh_freq': 10, 'language': 'zh'},
+        {'source': 'https://example5.com', 'refresh_freq': None, 'language': 'en'}
     ]
     mysql_manager.insert_web_pages(session, document_info_list)
     
@@ -98,6 +100,10 @@ def test_insert_web_pages(mysql_manager, session):
     sql_stmt = select(WebPage).filter(WebPage.source.in_([d['source'] for d in document_info_list]))
     pages = session.scalars(sql_stmt).all()
     assert len(pages) == len(document_info_list)
+
+    # Check the language for each page
+    for i, page in enumerate(pages):
+        assert page.language == document_info_list[i]['language']
 
 def test_insert_web_page_chunks(mysql_manager, session):
     """

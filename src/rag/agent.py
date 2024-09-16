@@ -1,7 +1,7 @@
 # src/rag/agent.py
 import os
 import re
-from typing import Optional
+from typing import Optional, Literal
 from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
 from rag.embedders import OpenAIEmbedding, HuggingFaceBgeEmbedding
@@ -70,14 +70,15 @@ class RAGAgent:
                 """
         
 
-    def process_url(self, url: str, max_pages: int = 1, autodownload: bool = False, refresh_frequency: Optional[int] = None):
+    def process_url(self, url: str, max_pages: int = 1, autodownload: bool = False, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
         """
         Process a given URL: scrape content, embed, and save to vector store.
         
         :param url: start URL to scrape content from
         :param max_pages: The maximum number of pages to scrape. If > 1, scrape sub-URLs using BFS. Default is 1.
         :param autodownload: Whether to automatically download files linked in the URL. Default is False.
-        :param refresh_frequency: The frequency in days to re-scrape and update the page content
+        :param refresh_frequency: The frequency in days to re-scrape and update the page content.
+        :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
         :return: None
         """
         # Step 1: Scrape content from the URL
@@ -92,8 +93,8 @@ class RAGAgent:
             return 0, 0
 
         # Step 3: Extract metadata for the new documents
-        # new_web_pages_metadata = [{'source': source, 'refresh_frequency': freq}, ...]
-        new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency)
+        # new_web_pages_metadata = [{'source': source, 'refresh_frequency': freq, 'language': lang}, ...]
+        new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency, language)
 
         # Step 4: Clean content before splitting
         # clean up \n and whitespaces to obtain compact text
@@ -388,19 +389,20 @@ class RAGAgent:
 
         return new_docs, expired_docs, up_to_date_docs
     
-    def extract_metadata(self, docs, refresh_frequency: Optional[int] = None):
+    def extract_metadata(self, docs, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
         """
         Extract metadata from the documents.
 
         :param docs: List[Document]
-        :param refresh_frequency: The re-scraping frequency in days for web contents
+        :param refresh_frequency: The re-scraping frequency in days for web contents. Keep None for uploaded files.
+        :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese)
         :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency}, {...}]
         """
         document_info_list = []
         for doc in docs:
             source = doc.metadata.get('source', None)
             if source:
-                document_info_list.append({'source': source, 'refresh_frequency': refresh_frequency})
+                document_info_list.append({'source': source, 'refresh_frequency': refresh_frequency, 'language': language})
             else:
                 print(f"Source not found in metadata: {doc.metadata}")
 
