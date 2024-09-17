@@ -7,14 +7,18 @@ from langchain_community.vectorstores.utils import filter_complex_metadata
 from .base_vectore_store import VectorStore
 
 class ChromaVectorStore(VectorStore):
-    def __init__(self, collection_name, embedding_model, persist_db_name=None):
+    def __init__(self, collection_name: str, embedding_model: str, persist_db_name: Optional[str] = None):
         super().__init__(embedding_model)
 
         self._persist_directory = None
 
+        # TODO: Re-configure the directory after deploy to cloud
+        # Set the hardcoded base directory
+        base_dir = "/Users/shuyuzhou/Documents/github/rag-clean-energy/src"
         if persist_db_name is not None:
-            full_path = os.path.join(os.getcwd(), persist_db_name)
-            # If persist_directory is provided but doesn't exist, create it
+            # Join the base directory with the persist_db_name to create the full path
+            full_path = os.path.join(base_dir, persist_db_name)
+            # Create the directory if it doesn't exist
             if not os.path.exists(full_path):
                 os.makedirs(full_path, exist_ok=True)
             self._persist_directory = full_path

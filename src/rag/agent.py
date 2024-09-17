@@ -1,22 +1,20 @@
 # src/rag/agent.py
 import os
-import re
 from typing import Optional, Literal
 from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
-from rag.embedders import OpenAIEmbedding, HuggingFaceBgeEmbedding
+from rag.embedders import OpenAIEmbedding, BgeEmbedding
 from rag.vectore_stores import ChromaVectorStore
 from rag.text_processor import TextProcessor
 from db_mysql import MySQLManager
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
 class RAGAgent:
-    def __init__(self, mysql_config: dict, llm: str = "gpt-4o-mini", embedder: str ='openai', vector_db: Optional[str] = None, response_template: Optional[str] = None) -> None:
+    def __init__(self, mysql_config: dict, llm: str = "gpt-4o-mini", vector_db: Optional[str] = None, response_template: Optional[str] = None) -> None:
         """
         Initialize the RAGAgent with necessary components.
         
@@ -26,7 +24,6 @@ class RAGAgent:
 
         :param mysql_config: (dict) - MySQL configuration dictionary
         :param llm: (str) - Name of the language model (e.g., "gpt-4o-mini")
-        :param embedder: (str) - Name of embedding model
         :param vector_db: (str | None) - Name of a vector store (e.g., Chroma). Used to constrcut persistent directory
         :param response_template: (str | None) - Predefined template for formatting responses
         :return: None
@@ -37,28 +34,8 @@ class RAGAgent:
         self.scraper = WebScraper(mysql_manager=self.mysql_manager)
         
         self._file_parsers = {}  # {'.pdf': PDFParser(), '.xls': ExcelParser(), '.xlsx': ExcelParser(), ...}
-        
-        # TODO: change embedder_type='openai' to 'bge' later when Chinese embedding is supported
-        try:
-            self.embedder = self._init_embedder(embedder_type=embedder)
-        except ValueError as e:
-            print(f"Initialization Error for Embedding Model: {e}")
-            self.embedder = None
-        except Exception as e:
-            print(f"Unexpected Error in getting Embedding Model: {e}")
-            self.embedder = None
 
-        self.vector_store = ChromaVectorStore(
-            collection_name="default",
-            embedding_model=self.embedder,
-            persist_db_name=vector_db,
-        )
-
-        # TODO: modify the way to write it later
-        self.llm = ChatOpenAI(
-            model=llm,
-            temperature=0,
-        )
+        self.text_processor = TextProcessor()
 
         if response_template:
             self.response_template = response_template
@@ -72,9 +49,51 @@ class RAGAgent:
                 Your answer should cite sources for any numbers or statistics you provide.
                 """
             
-        self.text_processor = TextProcessor()
+        # TODO: modify the way to write it later
+        self.llm = ChatOpenAI(
+            model=llm,
+            temperature=0,
+        )
         
+        # TODO: change embedder_type='openai' to 'bge' later when Chinese embedding is supported
+        try:
+            self.embedder = self._init_embedder(embedder_type='openai')
+        except ValueError as e:
+            print(f"Initialization Error for Embedding Model: {e}")
+            self.embedder = None
+        except Exception as e:
+            print(f"Unexpected Error in getting Embedding Model: {e}")
+            self.embedder = None
 
+        self.vector_store = ChromaVectorStore(
+            collection_name="default",
+            embedding_model=self.embedder,
+            persist_db_name=vector_db,
+        )
+
+
+        # TODO: in progress
+        self.embedders = {
+            "openai": OpenAIEmbedding().model,
+            "bge_en": BgeEmbedding(model_name="BAAI/bge-small-en-v1.5").model,
+            "bge_zh": BgeEmbedding(model_name="BAAI/bge-small-zh-v1.5").model,
+        }
+
+        # TODO: in progress
+        self.vector_stores = {
+            "en": ChromaVectorStore(
+                collection_name="docs_en",  # English collection
+                embedding_model=self.embedders['bge_en'],
+                persist_db_name=vector_db,
+            ),
+            "zh": ChromaVectorStore(
+                collection_name="docs_zh",  # Chinese collection
+                embedding_model=self.embedders['bge_zh'],
+                persist_db_name=vector_db,
+            ),
+        }
+
+        
     def process_url(self, url: str, max_pages: int = 1, autodownload: bool = False, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
         """
         Process a given URL: scrape content, embed, and save to vector store.
@@ -176,7 +195,7 @@ class RAGAgent:
         """
         Handle a user query by retrieving relevant information and formatting a contextual response by referring to the chat history.
         Workflow:
-            user query -> _retrieve_contextual_info() retrieve relevant docs -> _format_response() format response
+            user query -> _retrieve_contextual_info() retrieve relevant docs (cost point) -> _format_response() format response (cost point)
         
         :param query: The user's query
         :param chat_history: The chat history
@@ -291,7 +310,7 @@ class RAGAgent:
                 raise ValueError(f"Failed to initialize OpenAI Embeddings: {e}")
         elif embedder_type == "bge":
             try:
-                huggingface_embedding = HuggingFaceBgeEmbedding()
+                huggingface_embedding = BgeEmbedding()
                 return huggingface_embedding.model
             except Exception as e:
                 raise ValueError(f"Failed to initialize Hugging Face BGE Embeddings: {e}")

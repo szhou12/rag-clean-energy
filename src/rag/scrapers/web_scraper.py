@@ -1,4 +1,4 @@
-from langchain.document_loaders import WebBaseLoader
+from langchain_community.document_loaders import WebBaseLoader
 import os
 import requests
 from collections import deque
@@ -23,16 +23,10 @@ class WebScraper:
 
         # Load already existing files in the download directory
         self.downloaded_files = self._load_existing_files()
-
-        # File to store scraped URLs
-        # TODO: configure text file path after setup database
-        # TODO: get urls from MySQL
-        # self.scraped_urls_file = os.path.join(os.path.dirname(__file__), "scraped_urls.txt")
-        # self.scraped_urls = self._load_scraped_urls()
         
         # Reference to MySQLManager for database interaction
         self.mysql_manager = mysql_manager
-        # Fetch scraped URLs from MySQL instead of a text file
+        # Fetch scraped URLs from MySQL
         self.scraped_urls = set()
         self.fetch_active_urls_from_db()
 
@@ -138,38 +132,6 @@ class WebScraper:
         return doc
 
 
-    # def _load_scraped_urls(self):
-    #     """
-    #     Load previously scraped URLs from the text file into a set.
-    #     If the file does not exist, create it.
-    #     """
-    #     scraped_urls = set()
-        
-    #     # Ensure the directory for the file exists
-    #     file_dir = os.path.dirname(self.scraped_urls_file)
-    #     if not os.path.exists(file_dir):
-    #         os.makedirs(file_dir)
-
-    #     # Create the file if it doesn't exist
-    #     if not os.path.exists(self.scraped_urls_file):
-    #         with open(self.scraped_urls_file, 'w') as f:
-    #             pass  # Just create the file, no need to write anything yet
-
-    #     # Load the URLs from the file
-    #     if os.path.exists(self.scraped_urls_file):
-    #         with open(self.scraped_urls_file, 'r') as f:
-    #             for line in f:
-    #                 scraped_urls.add(line.strip())
-
-    #     return scraped_urls
-
-    # def _update_scraped_urls_file(self):
-    #     """
-    #     Update the scraped URLs text file with the latest set of scraped URLs.
-    #     """
-    #     with open(self.scraped_urls_file, 'w') as f:
-    #         for url in self.scraped_urls:
-    #             f.write(f"{url}\n")
 
     def _load_existing_files(self) -> set:
         """

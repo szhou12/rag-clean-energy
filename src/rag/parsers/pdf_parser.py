@@ -1,7 +1,7 @@
 # rag/parsers/pdf_parser.py
 import os
 from rag.parsers.base_parser import BaseParser
-from langchain.document_loaders import PyMuPDFLoader
+from langchain_community.document_loaders import PyMuPDFLoader
 
 class PDFParser(BaseParser):
     def save_file(self):

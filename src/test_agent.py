@@ -25,7 +25,8 @@ st.set_page_config(page_title="Clean Energy AI Consultant", page_icon="\N{robot 
 st.title("Clean Energy AI Consultant \N{robot face}")
 
 # Initialize RAGAgent (ensure to pass necessary MySQL config)
-rag_agent = RAGAgent(mysql_config=mysql_config)
+# TODO: testing persisting Chroma
+rag_agent = RAGAgent(mysql_config=mysql_config, vector_db="db_chroma")
 
 # Initialize vector_store in session_state if not already set
 if "vector_store" not in st.session_state:

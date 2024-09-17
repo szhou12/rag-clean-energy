@@ -2,7 +2,7 @@
 from rag.parsers.base_parser import BaseParser
 import os
 import pandas as pd
-from langchain.document_loaders import UnstructuredMarkdownLoader
+from langchain_community.document_loaders import UnstructuredMarkdownLoader
 
 class ExcelParser(BaseParser):
     def save_file(self, sheet_name, markdown_text):
