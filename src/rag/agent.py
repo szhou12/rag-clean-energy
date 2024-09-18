@@ -41,13 +41,16 @@ class RAGAgent:
             self.response_template = response_template
         else:
             self.response_template = """
-                Your answer should be in the format of a report that follows the structure: 
+                Your answer should be in the format of a report that follows the structure below: 
                 <Title>: give a proper title
                 <Summary>: key points that should be highlighted
                 <Details>: provide details to each key point and enrich the details with numbers and statistics
                 <Conclusion>: give a proper conclusion
-                Your answer should cite sources for any numbers or statistics you provide.
+                For any numbers or statistics you provide, please add the source in brackets.
+                At the end of the report, please provide a list of references.
+                You should respond with the whole report in Chinese.
                 """
+
             
         # TODO: modify the way to write it later
         self.llm = ChatOpenAI(
@@ -168,6 +171,7 @@ class RAGAgent:
 
     def process_file(self, file):
         """
+        TODO: to be completed
         Process an uploaded file: parse file content, embed, and save to vector store.
         
         :param file: The uploaded file. Currently support: PDF, Excel (multiple sheets)
@@ -384,7 +388,7 @@ class RAGAgent:
         session = self.mysql_manager.create_session()
         try:
             # Step 1: Insert embeddings into Chroma (vector store)
-            chunks_metadata = self.vector_store.add_documents(documents=chunks)  # Embedding vectors to Chroma
+            chunks_metadata = self.vector_store.add_documents(documents=chunks)
 
             # Step 2: Insert metadata into MySQL
             self.mysql_manager.insert_web_pages(session, docs_metadata)

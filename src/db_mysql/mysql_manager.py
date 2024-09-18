@@ -117,7 +117,7 @@ class MySQLManager:
         Insert multiple new web pages in batch.
 
         :param session: SQLAlchemy session to interact with the database.
-        :param document_info_list: List[dict] [{'source': source, 'refresh_freq': freq, 'language': language}, {...}]
+        :param document_info_list: List[dict] [{'source': url, 'refresh_frequency': freq, 'language': lang}, {...}]
         """
         try:
             # Add url checksum, current date, and language to each entry
@@ -128,9 +128,6 @@ class MySQLManager:
                     document['checksum'] = hashlib.sha256(source.encode('utf-8')).hexdigest()
                     # Add the current date for the web page
                     document['date'] = datetime.now()
-                    # Ensure language field is included, defaulting to 'en' if not provided
-                    if 'language' not in document:
-                        document['language'] = 'en'
 
             # Perform bulk insert using ORM's insert statement
             sql_stmt = insert(WebPage)  # Create an insert statement for the WebPage ORM model
@@ -140,17 +137,17 @@ class MySQLManager:
             session.rollback()  # Rollback transaction in case of error
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPage: {e}")
         
-    def insert_web_page_chunks(self, session, document_info_list):
+    def insert_web_page_chunks(self, session, chunk_info_list):
         """
         Insert chunks associated with a web page in batch.
 
         :param session: SQLAlchemy session to interact with the database.
-        :param document_info_list: List[dict] [{'id': uuid4, 'source': source}, {...}]
+        :param chunk_info_list: List[dict] [{'id': uuid4, 'source': source}, {...}]
         """
         try:            
             # Perform bulk insert using ORM's insert statement and Session.execute()
             sql_stmt = insert(WebPageChunk)  # ORM insert statement
-            session.execute(sql_stmt, document_info_list)
+            session.execute(sql_stmt, chunk_info_list)
         except SQLAlchemyError as e:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
@@ -292,6 +289,46 @@ class MySQLManager:
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for batch sources {sources}: {e}")
             return []
+        
+        
+    def get_language_by_single_source(self, session, source: str):
+        """
+        Get the language of the web page for the given source.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param source: The source URL to match.
+        :return: The language of the web page if found, otherwise None.
+        """
+        try:
+            # Query the language field for the source URL
+            sql_stmt = select(WebPage.language).filter_by(source=source)
+            language = session.scalars(sql_stmt).first()
+            return language
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching language for {source}: {e}")
+            return None
+    
+    def get_languages_by_sources(self, session, sources: list[str]) -> dict[str, str]:
+        """
+        Get the languages of the web pages for the given list of sources.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param sources: List of source URLs to match.
+        :return: A dictionary where the keys are source URLs and the values are the languages of the web pages.
+        """
+        if not sources:
+            return {}
+        
+        try:
+            # Query the WebPage objects that match any of the source URLs
+            sql_stmt = select(WebPage.source, WebPage.language).where(WebPage.source.in_(sources))
+            results = session.execute(sql_stmt).all()
+
+            # Return a dictionary with source as key and language as value
+            return {source: language for source, language in results}
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching languages for sources: {e}")
+            return {}
         
     
 

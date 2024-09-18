@@ -393,3 +393,77 @@ def test_delete_web_pages_by_sources(mysql_manager, session):
     still_exists_page = session.scalars(still_exists_sql_stmt).first()
     assert still_exists_page is not None
     assert still_exists_page.source == 'https://example-delete-11.com'
+
+def test_get_language_by_single_source(mysql_manager, session):
+    """
+    Test fetching the language of a single web page by its source URL.
+    """
+    # Insert a test web page into the database
+    url = "https://example-en.com"
+    language = "zh"
+    mysql_manager.insert_web_page(session, url, refresh_freq=23, language=language)
+    
+    # Retrieve the language using the get_language_by_single_source method
+    retrieved_language = mysql_manager.get_language_by_single_source(session, url)
+    
+    # Assert that the returned language matches the expected value
+    assert retrieved_language == language, f"Expected {language} but got {retrieved_language}"
+
+def test_get_language_by_single_source_nonexistent(mysql_manager, session):
+    """
+    Test fetching the language of a non-existent source URL.
+    """
+    # Attempt to get the language for a URL that does not exist
+    nonexistent_url = "https://nonexistent.com"
+    retrieved_language = mysql_manager.get_language_by_single_source(session, nonexistent_url)
+    
+    # Assert that the returned value is None
+    assert retrieved_language is None, "Expected None for non-existent URL"
+
+def test_get_languages_by_sources(mysql_manager, session):
+    """
+    Test fetching the languages for multiple web pages by their source URLs.
+    """
+    # Insert multiple test web pages with different languages
+    pages_metadata = [
+        {"source": "https://example-en-1.com", "language": "en"},
+        {"source": "https://example-zh-2.com", "language": "zh"},
+        {"source": "https://example-en-3.com", "language": "en"},
+    ]
+    for page in pages_metadata:
+        mysql_manager.insert_web_page(session, page["source"], refresh_freq=7, language=page["language"])
+    
+    # Retrieve the languages using the get_languages_by_sources method
+    sources = ["https://example-en-1.com", "https://example-zh-2.com", "https://example-en-3.com"]
+    retrieved_languages = mysql_manager.get_languages_by_sources(session, sources)
+    
+    # Assert that the returned dictionary contains the correct languages
+    expected_languages = {
+        "https://example-en-1.com": "en",
+        "https://example-zh-2.com": "zh",
+        "https://example-en-3.com": "en",
+    }
+    assert retrieved_languages == expected_languages, f"Expected {expected_languages} but got {retrieved_languages}"
+
+def test_get_languages_by_sources_partial_existence(mysql_manager, session):
+    """
+    Test fetching languages when some URLs exist and some don't.
+    """
+    # Insert some test web pages
+    pages_metadata = [
+        {"source": "https://example1.com", "language": "en"},
+        {"source": "https://example2.com", "language": "zh"},
+    ]
+    for page in pages_metadata:
+        mysql_manager.insert_web_page(session, page["source"], refresh_freq=7, language=page["language"])
+    
+    # Retrieve the languages for both existing and non-existent URLs
+    sources = ["https://example1.com", "https://example2.com", "https://nonexistent.com"]
+    retrieved_languages = mysql_manager.get_languages_by_sources(session, sources)
+    
+    # Assert that only the existing URLs are returned, and the non-existent URL is absent
+    expected_languages = {
+        "https://example1.com": "en",
+        "https://example2.com": "zh",
+    }
+    assert retrieved_languages == expected_languages, f"Expected {expected_languages} but got {retrieved_languages}"
