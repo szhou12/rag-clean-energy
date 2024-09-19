@@ -422,7 +422,7 @@ def test_get_language_by_single_source_nonexistent(mysql_manager, session):
 
 def test_get_languages_by_sources(mysql_manager, session):
     """
-    Test fetching the languages for multiple web pages by their source URLs.
+    Test fetching the languages for multiple web pages by their source URLs and grouping them by 'en' and 'zh'.
     """
     # Insert multiple test web pages with different languages
     pages_metadata = [
@@ -437,17 +437,16 @@ def test_get_languages_by_sources(mysql_manager, session):
     sources = ["https://example-en-1.com", "https://example-zh-2.com", "https://example-en-3.com"]
     retrieved_languages = mysql_manager.get_languages_by_sources(session, sources)
     
-    # Assert that the returned dictionary contains the correct languages
+    # Assert that the returned dictionary contains the correct grouping of sources by language
     expected_languages = {
-        "https://example-en-1.com": "en",
-        "https://example-zh-2.com": "zh",
-        "https://example-en-3.com": "en",
+        "en": ["https://example-en-1.com", "https://example-en-3.com"],
+        "zh": ["https://example-zh-2.com"],
     }
     assert retrieved_languages == expected_languages, f"Expected {expected_languages} but got {retrieved_languages}"
 
 def test_get_languages_by_sources_partial_existence(mysql_manager, session):
     """
-    Test fetching languages when some URLs exist and some don't.
+    Test fetching languages when some URLs exist and some don't, and grouping the existing ones by 'en' and 'zh'.
     """
     # Insert some test web pages
     pages_metadata = [
@@ -461,9 +460,9 @@ def test_get_languages_by_sources_partial_existence(mysql_manager, session):
     sources = ["https://example1.com", "https://example2.com", "https://nonexistent.com"]
     retrieved_languages = mysql_manager.get_languages_by_sources(session, sources)
     
-    # Assert that only the existing URLs are returned, and the non-existent URL is absent
+    # Assert that only the existing URLs are returned and grouped correctly
     expected_languages = {
-        "https://example1.com": "en",
-        "https://example2.com": "zh",
+        "en": ["https://example1.com"],
+        "zh": ["https://example2.com"],
     }
     assert retrieved_languages == expected_languages, f"Expected {expected_languages} but got {retrieved_languages}"

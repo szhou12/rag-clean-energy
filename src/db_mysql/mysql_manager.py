@@ -308,27 +308,35 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching language for {source}: {e}")
             return None
     
-    def get_languages_by_sources(self, session, sources: list[str]) -> dict[str, str]:
+    def get_languages_by_sources(self, session, sources: list[str]) -> dict[str, list[str]]:
         """
-        Get the languages of the web pages for the given list of sources.
+        Get the languages of the web pages for the given list of sources and group them by 'en' and 'zh'.
 
         :param session: SQLAlchemy session to interact with the database.
         :param sources: List of source URLs to match.
-        :return: A dictionary where the keys are source URLs and the values are the languages of the web pages.
+        :return: A dictionary with two keys 'en' and 'zh', where the values are lists of source URLs. {'en': [source 1, source 2, ...], 'zh': [source 1, ...]}
         """
         if not sources:
-            return {}
+            return {'en': [], 'zh': []}
         
         try:
             # Query the WebPage objects that match any of the source URLs
             sql_stmt = select(WebPage.source, WebPage.language).where(WebPage.source.in_(sources))
             results = session.execute(sql_stmt).all()
 
-            # Return a dictionary with source as key and language as value
-            return {source: language for source, language in results}
+            # Initialize the dictionary with two keys 'en' and 'zh'
+            languages_dict = {'en': [], 'zh': []}
+
+            # Group sources based on their language
+            for source, language in results:
+                if language in languages_dict:
+                    languages_dict[language].append(source)
+
+            return languages_dict
+
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching languages for sources: {e}")
-            return {}
+            return {'en': [], 'zh': []}
         
     
 

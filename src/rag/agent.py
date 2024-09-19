@@ -133,7 +133,7 @@ class RAGAgent:
         # Step 6: Insert data: insert content into Chroma, insert metadata into MySQL
         # chunk_metadata_list = [{'source': source, 'id': chunk_id}, ...]
         try:
-            chunk_metadata_list = self.insert_data(docs_metadata=new_web_pages_metadata, chunks=new_web_pages_chunks)
+            chunk_metadata_list = self.insert_data(docs_metadata=new_web_pages_metadata, chunks=new_web_pages_chunks, language=language)
             print(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
         except RuntimeError as e:
             print(f"Failed to insert data into Chroma and MySQL due to an error: {e}")
@@ -193,86 +193,6 @@ class RAGAgent:
         # Step 4: Save embeddings and chunks to the vector store
         # self.vector_store.save(embeddings, chunks)
 
-
-    
-    def handle_query(self, user_query, chat_history):
-        """
-        Handle a user query by retrieving relevant information and formatting a contextual response by referring to the chat history.
-        Workflow:
-            user query -> _retrieve_contextual_info() retrieve relevant docs (cost point) -> _format_response() format response (cost point)
-        
-        :param query: The user's query
-        :param chat_history: The chat history
-        :return: Formatted response to the query
-        """
-        # Step 1: Retrieve relevant chunks from the vector store
-        relevant_chunks = self._retrieve_contextual_info()
-        
-        # Step 2: Format the response using the predefined template
-        retrieval_chain = self._format_response(relevant_chunks)
-
-        # Step 3: Stream the response
-        answer_only_retrieval_chain = retrieval_chain.pick("answer") # .pick() keeps only key="answer" in the response
-        response = answer_only_retrieval_chain.stream({
-            "chat_history": chat_history,
-            "input": user_query
-        })
-
-        # return response["answer"] # use this if use retrieval_chain.invoke()
-        return response
-    
-    def _retrieve_contextual_info(self):
-        """
-        Retrieve relevant information from the vector store based on the chat history and the user's query.
-        1. This function first looks at the chat history and the current user's question.
-        2. It then uses the LLM to reformulate the question if necessary. e.g., user query "Please explain green hydrogen to me" might be transformed to "What is green hydrogen and how does it relate to renewable energy sources?" This reformulation takes into account the previous conversation about renewable energy sources.
-        3. The reformulated question is then used to retrieve relevant documents from the vector store. In our example, it retrieved three key pieces of information about green hydrogen.
-
-        :return: Runnable[Any, List[Document]] - An LCEL Runnable. The Runnable output is a list of Documents. For simple understanding, returned is a list of relevant documents retrieved from the vector store
-        """
-        if not self.vector_store:
-            raise ValueError("Vector store is not initialized. Cannot create retriever chain.")
-        
-        vs_retriever = self.vector_store.as_retriever()
-
-        contextualize_q_system_prompt = (
-            "Given a chat history and the latest user question "
-            "which might reference context in the chat history, "
-            "formulate a standalone question which can be understood "
-            "without the chat history. Do NOT answer the question, "
-            "just reformulate it if needed and otherwise return it as is."
-        )
-
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", contextualize_q_system_prompt),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-        ])
-
-
-        retrieved_docs = create_history_aware_retriever(self.llm, vs_retriever, prompt)
-        return retrieved_docs
-    
-    def _format_response(self, retrieved_docs):
-        """
-        Format the retrieved chunks into a coherent response based on a response template.
-        1. This function takes the retrieved documents (retrieved_docs), the current user's query, and the chat history.
-        2. It then uses another LLM call to generate a structured response based on the provided template.
-        3. The LLM combines the retrieved information with its own knowledge to create a comprehensive, structured response to user's query.
-        4. The final response will be in the format of the response template provided during initialization.
-
-        :param retrieved_docs: List of text chunks retrieved from the vector store
-        :return: An LCEL Runnable. The Runnable return is a dictionary containing at the very least a context and answer key.
-        """
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n\n{context}"), # context = retrieved_docs
-            ("system", self.response_template),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"), # input = user query
-        ])
-        stuff_documents_chain = create_stuff_documents_chain(self.llm, prompt)
-        retrieval_chain = create_retrieval_chain(retrieved_docs, stuff_documents_chain)
-        return retrieval_chain
 
     def _select_parser(self, file):
         """
@@ -375,20 +295,22 @@ class RAGAgent:
         return document_info_list
     
 
-    def insert_data(self, docs_metadata, chunks):
+    def insert_data(self, docs_metadata, chunks, language: Literal["en", "zh"]):
         """
         Wrapper function to handle atomic insertion into Chroma (for embeddings) and MySQL (for metadata).
         Implements the manual two-phase commit (2PC) pattern.
         
         :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL.
         :param chunks: List[Document] - Chunks of document text to be inserted into Chroma.
+        :param language: The language of the inserted data content. Only "en" (English) or "zh" (Chinese) are accepted.
         :raises: Exception if any part of the insertion process fails.
         :return: List[dict] chunks_metadata - Metadata of chunks inserted into Chroma.
         """
         session = self.mysql_manager.create_session()
         try:
             # Step 1: Insert embeddings into Chroma (vector store)
-            chunks_metadata = self.vector_store.add_documents(documents=chunks)
+            # TODO: chunks_metadata = self.vector_store.add_documents(documents=chunks)
+            chunks_metadata = self.vector_stores[language].add_documents(documents=chunks)
 
             # Step 2: Insert metadata into MySQL
             self.mysql_manager.insert_web_pages(session, docs_metadata)
@@ -409,7 +331,8 @@ class RAGAgent:
             if 'chunks_metadata' in locals():
                 try:
                     chunk_ids = [item['id'] for item in chunks_metadata]
-                    self.vector_store.delete(ids=chunk_ids)  # Delete embeddings by ids in Chroma
+                    # TODO: self.vector_store.delete(ids=chunk_ids)  # Delete embeddings by ids in Chroma
+                    self.vector_stores[language].delete(ids=chunk_ids)  # Delete embeddings by ids in Chroma
                 except Exception as chroma_rollback_error:
                     print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
 
@@ -433,20 +356,25 @@ class RAGAgent:
             # Step 1: Get
             # 1-1: MySQL: Get old chunk ids by source
             old_chunk_ids = self.mysql_manager.get_chunk_ids_by_single_source(session, source)
-            # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
-            old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
+            # 1-2: MySQL: Get language by source
+            language = self.mysql_manager.get_language_by_single_source(session, source)
+            # 1-3: Chroma: Get old documents from Chroma before deletion (for potential rollback)
+            # TODO: old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
+            old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
 
             # Step 2: Delete
             # 2-1: MySQL: Delete WebPageChunk by old ids
             self.mysql_manager.delete_web_page_chunks_by_ids(session, old_chunk_ids)
             # 2-2: Chroma: Delete old chunks by old ids
-            self.vector_store.delete(ids=old_chunk_ids)
+            # TODO: self.vector_store.delete(ids=old_chunk_ids)
+            self.vector_stores[language].delete(ids=old_chunk_ids)
 
             # Step 3: Upsert
             # 3-1: MySQL: Update the 'date' field for WebPage
             self.mysql_manager.update_web_pages_date(session, [source])
             # 3-2: Chroma: Insert new chunks into Chroma, get new chunk ids.
-            new_chunks_metadata = self.vector_store.add_documents(chunks)
+            # TODO: new_chunks_metadata = self.vector_store.add_documents(chunks)
+            new_chunks_metadata = self.vector_stores[language].add_documents(chunks)
             # 3-3: MySQL: Insert new WebPageChunk into MySQL
             self.mysql_manager.insert_web_page_chunks(session, new_chunks_metadata)
 
@@ -466,11 +394,13 @@ class RAGAgent:
                 # If we already inserted new chunks into Chroma, we need to delete them to maintain consistency
                 if 'new_chunks_metadata' in locals():
                     new_chunk_ids = [item['id'] for item in new_chunks_metadata]
-                    self.vector_store.delete(new_chunk_ids)
+                    # TODO: self.vector_store.delete(new_chunk_ids)
+                    self.vector_stores[language].delete(new_chunk_ids)
 
                 # Restore old chunks to Chroma if they were deleted
                 if old_documents:
-                    self.vector_store.add_documents(documents=old_documents, ids=old_chunk_ids)
+                    # TODO: self.vector_store.add_documents(documents=old_documents, ids=old_chunk_ids)
+                    self.vector_stores[language].add_documents(documents=old_documents, ids=old_chunk_ids)
             except Exception as chroma_rollback_error:
                 print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
 
@@ -479,10 +409,28 @@ class RAGAgent:
         finally:
             self.mysql_manager.close_session(session)
 
-    
+
     def delete_data_by_sources(self, sources: list[str]):
         """
-        Delete data for a list of sources from both MySQL and Chroma.
+        Delete data for multiple sources by their language.
+        
+        :param sources: List of sources (e.g. URLs) of the web pages to be deleted.
+        :return: None
+        """
+        # Get and categorize sources by language: {'en': [source1, source2], 'zh': [source3, source4]}
+        sources_by_language = self.mysql_manager.get_languages_by_sources(sources)
+
+        # Process deletion for English sources
+        if sources_by_language['en']:
+            self.delete_content_and_metadata(sources_by_language['en'], language="en")
+
+        # Process deletion for Chinese sources
+        if sources_by_language['zh']:
+            self.delete_content_and_metadata(sources_by_language['zh'], language="zh")
+    
+    def delete_content_and_metadata(self, sources: list[str], language: Literal["en", "zh"]):
+        """
+        Delete content data from Chroma and metadata from MySQL for a list of sources.
         Implements atomic behavior using manual two-phase commit (2PC) pattern.
         
         :param sources: List of sources (e.g. URLs) of the web pages to be deleted.
@@ -495,7 +443,7 @@ class RAGAgent:
             # 1-1: MySQL: Get all chunk ids for the given sources using get_chunk_ids_by_sources
             old_chunk_ids = self.mysql_manager.get_chunk_ids_by_sources(session, sources)
             # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
-            old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
+            old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
 
             # Step 2: Delete
             # 2-1: MySQL: Delete WebPageChunk by old chunk ids
@@ -503,7 +451,7 @@ class RAGAgent:
             # 2-2: MySQL: Delete WebPages by sources
             self.mysql_manager.delete_web_pages_by_sources(session, sources)
             # 2-3: Chroma: Delete chunks by old chunk ids
-            self.vector_store.delete(ids=old_chunk_ids)
+            self.vector_stores[language].delete(ids=old_chunk_ids)
 
             # Step 3: Commit MySQL transaction
             session.commit()
@@ -519,7 +467,7 @@ class RAGAgent:
             try:
                 # Restore old chunks to Chroma if they were deleted
                 if old_documents:
-                    self.vector_store.add_documents(documents=old_documents, ids=old_chunk_ids)
+                    self.vector_stores[language].add_documents(documents=old_documents, ids=old_chunk_ids)
             except Exception as chroma_rollback_error:
                 print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
 
@@ -527,5 +475,85 @@ class RAGAgent:
             raise RuntimeError(f"Data deletion failed for sources {sources}: {e}")
         finally:
             self.mysql_manager.close_session(session)
+    
+
+    def handle_query(self, user_query, chat_history):
+        """
+        Handle a user query by retrieving relevant information and formatting a contextual response by referring to the chat history.
+        Workflow:
+            user query -> _retrieve_contextual_info() retrieve relevant docs (cost point) -> _format_response() format response (cost point)
+        
+        :param query: The user's query
+        :param chat_history: The chat history
+        :return: Formatted response to the query
+        """
+        # Step 1: Retrieve relevant chunks from the vector store
+        relevant_chunks = self._retrieve_contextual_info()
+        
+        # Step 2: Format the response using the predefined template
+        retrieval_chain = self._format_response(relevant_chunks)
+
+        # Step 3: Stream the response
+        answer_only_retrieval_chain = retrieval_chain.pick("answer") # .pick() keeps only key="answer" in the response
+        response = answer_only_retrieval_chain.stream({
+            "chat_history": chat_history,
+            "input": user_query
+        })
+
+        # return response["answer"] # use this if use retrieval_chain.invoke()
+        return response
+    
+    def _retrieve_contextual_info(self):
+        """
+        Retrieve relevant information from the vector store based on the chat history and the user's query.
+        1. This function first looks at the chat history and the current user's question.
+        2. It then uses the LLM to reformulate the question if necessary. e.g., user query "Please explain green hydrogen to me" might be transformed to "What is green hydrogen and how does it relate to renewable energy sources?" This reformulation takes into account the previous conversation about renewable energy sources.
+        3. The reformulated question is then used to retrieve relevant documents from the vector store. In our example, it retrieved three key pieces of information about green hydrogen.
+
+        :return: Runnable[Any, List[Document]] - An LCEL Runnable. The Runnable output is a list of Documents. For simple understanding, returned is a list of relevant documents retrieved from the vector store
+        """
+        if not self.vector_store:
+            raise ValueError("Vector store is not initialized. Cannot create retriever chain.")
+        
+        vector_store_retriever = self.vector_store.as_retriever()
+
+        contextualize_q_system_prompt = (
+            "Given a chat history and the latest user question "
+            "which might reference context in the chat history, "
+            "formulate a standalone question which can be understood "
+            "without the chat history. Do NOT answer the question, "
+            "just reformulate it if needed and otherwise return it as is."
+        )
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", contextualize_q_system_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"),
+        ])
+
+
+        retrieved_docs = create_history_aware_retriever(self.llm, vector_store_retriever, prompt)
+        return retrieved_docs
+    
+    def _format_response(self, retrieved_docs):
+        """
+        Format the retrieved chunks into a coherent response based on a response template.
+        1. This function takes the retrieved documents (retrieved_docs), the current user's query, and the chat history.
+        2. It then uses another LLM call to generate a structured response based on the provided template.
+        3. The LLM combines the retrieved information with its own knowledge to create a comprehensive, structured response to user's query.
+        4. The final response will be in the format of the response template provided during initialization.
+
+        :param retrieved_docs: List of text chunks retrieved from the vector store
+        :return: An LCEL Runnable. The Runnable return is a dictionary containing at the very least a context and answer key.
+        """
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n\n{context}"), # context = retrieved_docs
+            ("system", self.response_template),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"), # input = user query
+        ])
+        stuff_documents_chain = create_stuff_documents_chain(self.llm, prompt)
+        retrieval_chain = create_retrieval_chain(retrieved_docs, stuff_documents_chain)
+        return retrieval_chain
 
 
