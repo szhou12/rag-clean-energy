@@ -7,14 +7,19 @@ from rag.embedders import OpenAIEmbedding, BgeEmbedding
 from rag.vectore_stores import ChromaVectorStore
 from rag.text_processor import TextProcessor
 from db_mysql import MySQLManager
-
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
 class RAGAgent:
-    def __init__(self, mysql_config: dict, llm: str = "gpt-4o-mini", vector_db: Optional[str] = None, response_template: Optional[str] = None) -> None:
+    def __init__(
+            self,
+            mysql_config: dict, 
+            vector_db: Optional[str] = None, 
+            response_template: Optional[str] = None,
+            llm: str = "gpt-4o-mini"
+    ) -> None:
         """
         Initialize the RAGAgent with necessary components.
         
@@ -24,7 +29,7 @@ class RAGAgent:
 
         :param mysql_config: (dict) - MySQL configuration dictionary
         :param llm: (str) - Name of the language model (e.g., "gpt-4o-mini")
-        :param vector_db: (str | None) - Name of a vector store (e.g., Chroma). Used to constrcut persistent directory
+        :param vector_db: (str | None) - Name of Chroma's persistent directory. Used to constrcut persistent directory. If None, storage is in-memory and emphemeral.
         :param response_template: (str | None) - Predefined template for formatting responses
         :return: None
         """
@@ -120,7 +125,7 @@ class RAGAgent:
             return 0, 0
 
         # Step 3: Extract metadata for the new documents
-        # new_web_pages_metadata = [{'source': source, 'refresh_frequency': freq, 'language': lang}, ...]
+        # new_web_pages_metadata := [{'source': source, 'refresh_frequency': freq, 'language': lang}, ...]
         new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency, language)
 
         # Step 4: Clean content before splitting
@@ -131,7 +136,7 @@ class RAGAgent:
 
 
         # Step 6: Insert data: insert content into Chroma, insert metadata into MySQL
-        # chunk_metadata_list = [{'source': source, 'id': chunk_id}, ...]
+        # chunk_metadata_list := [{'source': source, 'id': chunk_id}, ...]
         try:
             chunk_metadata_list = self.insert_data(docs_metadata=new_web_pages_metadata, chunks=new_web_pages_chunks, language=language)
             print(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
@@ -531,7 +536,6 @@ class RAGAgent:
             ("human", "{input}"),
         ])
 
-
         retrieved_docs = create_history_aware_retriever(self.llm, vector_store_retriever, prompt)
         return retrieved_docs
     
@@ -547,7 +551,7 @@ class RAGAgent:
         :return: An LCEL Runnable. The Runnable return is a dictionary containing at the very least a context and answer key.
         """
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n\n{context}"), # context = retrieved_docs
+            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n{context}"), # context = retrieved_docs
             ("system", self.response_template),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"), # input = user query
