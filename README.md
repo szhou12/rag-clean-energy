@@ -153,6 +153,11 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 - [Understanding LangChain's RecursiveCharacterTextSplitter](https://dev.to/eteimz/understanding-langchains-recursivecharactertextsplitter-2846)
 
 
+#### Langchain Retriever
+- [Custom Retriever](https://python.langchain.com/v0.1/docs/modules/data_connection/retrievers/custom_retriever/)
+- [BaseRetriever](https://api.python.langchain.com/en/latest/retrievers/langchain_core.retrievers.BaseRetriever.html)
+- [How to do retrieval with contextual compression](https://python.langchain.com/docs/how_to/contextual_compression/)
+
 ### Chroma
 - [Run Chroma DB on a local machine and as a Docker container](https://abhishektatachar.medium.com/run-chroma-db-on-a-local-machine-and-as-a-docker-container-a9d4b91d2a97)
 - [Changing the distance method in Chroma](https://github.com/langchain-ai/langchain/discussions/22422)
