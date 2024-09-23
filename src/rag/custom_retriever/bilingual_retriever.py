@@ -1,7 +1,8 @@
-from typing import List, Literal
+from typing import List
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
+import asyncio
 
 class BilingualRetriever(BaseRetriever):
     """Custom retriever that retrieves relevant documents from both English and Chinese collections."""
@@ -29,7 +30,7 @@ class BilingualRetriever(BaseRetriever):
         # Retrieve documents from both English and Chinese retrievers
         english_docs = self.english_retriever._get_relevant_documents(query, run_manager=run_manager)
         chinese_docs = self.chinese_retriever._get_relevant_documents(query, run_manager=run_manager)
-
+        
         # Combine both sets of documents into a single list
         combined_docs = english_docs + chinese_docs
 
@@ -46,8 +47,14 @@ class BilingualRetriever(BaseRetriever):
         :return: A list of relevant documents from both collections.
         """
         # Retrieve documents from both English and Chinese retrievers asynchronously
-        english_docs = await self.english_retriever._aget_relevant_documents(query, run_manager=run_manager)
-        chinese_docs = await self.chinese_retriever._aget_relevant_documents(query, run_manager=run_manager)
+
+        # english_docs = await self.english_retriever._aget_relevant_documents(query, run_manager=run_manager)
+        # chinese_docs = await self.chinese_retriever._aget_relevant_documents(query, run_manager=run_manager)
+
+        english_docs, chinese_docs = await asyncio.gather(
+            self.english_retriever._aget_relevant_documents(query, run_manager=run_manager),
+            self.chinese_retriever._aget_relevant_documents(query, run_manager=run_manager)
+        )
 
         # Combine both sets of documents into a single list
         combined_docs = english_docs + chinese_docs

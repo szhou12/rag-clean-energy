@@ -1,16 +1,19 @@
 # src/rag/agent.py
 import os
 from typing import Optional, Literal
+from langchain.chains.history_aware_retriever import create_history_aware_retriever
+from langchain.chains.retrieval import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_openai import ChatOpenAI
+from db_mysql import MySQLManager
 from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
 from rag.embedders import OpenAIEmbedding, BgeEmbedding
 from rag.vectore_stores import ChromaVectorStore
 from rag.text_processor import TextProcessor
-from db_mysql import MySQLManager
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import ChatOpenAI
+from rag.custom_retriever import BilingualRetriever
+
 
 class RAGAgent:
     def __init__(
@@ -486,14 +489,14 @@ class RAGAgent:
         """
         Handle a user query by retrieving relevant information and formatting a contextual response by referring to the chat history.
         Workflow:
-            user query -> _retrieve_contextual_info() retrieve relevant docs (cost point) -> _format_response() format response (cost point)
+            user query -> _retrieve_contextual_docs() retrieve relevant docs (cost point) -> _format_response() format response (cost point)
         
         :param query: The user's query
         :param chat_history: The chat history
         :return: Formatted response to the query
         """
         # Step 1: Retrieve relevant chunks from the vector store
-        relevant_chunks = self._retrieve_contextual_info()
+        relevant_chunks = self._retrieve_contextual_docs()
         
         # Step 2: Format the response using the predefined template
         retrieval_chain = self._format_response(relevant_chunks)
@@ -508,9 +511,9 @@ class RAGAgent:
         # return response["answer"] # use this if use retrieval_chain.invoke()
         return response
     
-    def _retrieve_contextual_info(self):
+    def _retrieve_contextual_docs(self):
         """
-        Retrieve relevant information from the vector store based on the chat history and the user's query.
+        Retrieve relevant documents from the vector store based on the chat history and the user's query.
         1. This function first looks at the chat history and the current user's question.
         2. It then uses the LLM to reformulate the question if necessary. e.g., user query "Please explain green hydrogen to me" might be transformed to "What is green hydrogen and how does it relate to renewable energy sources?" This reformulation takes into account the previous conversation about renewable energy sources.
         3. The reformulated question is then used to retrieve relevant documents from the vector store. In our example, it retrieved three key pieces of information about green hydrogen.
@@ -538,6 +541,52 @@ class RAGAgent:
 
         retrieved_docs = create_history_aware_retriever(self.llm, vector_store_retriever, prompt)
         return retrieved_docs
+    
+    def _retrieve_bilingual_contextual_docs(self):
+        """
+        Retrieve relevant documents from both English and Chinese vector stores based on the chat history and the user's query.
+        1. This function first looks at the chat history and the current user's question.
+        2. It then uses the LLM to reformulate the question if necessary. 
+        e.g., user query "Please explain green hydrogen to me" might be transformed to 
+        "What is green hydrogen and how does it relate to renewable energy sources?" This reformulation takes into account the previous conversation about renewable energy sources.
+        3. The reformulated question is then used to retrieve relevant documents from both the English and Chinese vector stores.
+
+        :return: Runnable[Any, List[Document]] - An LCEL Runnable. The Runnable output is a list of Documents from both collections.
+        """
+        # Ensure both vector stores are initialized
+        if not self.vector_stores['en'] or not self.vector_stores['zh']:
+            raise ValueError("Vector stores for both Chinese and English must be initialized.")
+        
+        # Create retrievers for English and Chinese vector stores
+        english_retriever = self.vector_stores['en'].as_retriever()
+        chinese_retriever = self.vector_stores['zh'].as_retriever()
+
+        # Initialize the bilingual retriever with both English and Chinese retrievers
+        bilingual_retriever = BilingualRetriever(english_retriever=english_retriever, chinese_retriever=chinese_retriever)
+
+        # Define the prompt to contextualize the query using the chat history
+        contextualize_q_system_prompt = (
+            "Given a chat history and the latest user question "
+            "which might reference context in the chat history, "
+            "formulate a standalone question which can be understood "
+            "without the chat history. Do NOT answer the question, "
+            "just reformulate it if needed and otherwise return it as is.\n"
+            "根据聊天记录和最新的用户问题，请将问题重新表述为一个可以在没有聊天记录的情况下理解的独立问题。"
+            "不要回答问题，只需要重新表述即可。如果没有必要重新表述，则原样返回问题。"
+        )
+
+        # Create the prompt template using LangChain's ChatPromptTemplate
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", contextualize_q_system_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"),
+        ])
+
+        # Use create_history_aware_retriever to chain the LLM with the bilingual retriever
+        retrieved_docs = create_history_aware_retriever(self.llm, bilingual_retriever, prompt)
+
+        return retrieved_docs
+
     
     def _format_response(self, retrieved_docs):
         """
