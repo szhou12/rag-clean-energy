@@ -4,9 +4,11 @@ from rag.parsers.base_parser import BaseParser
 from langchain_community.document_loaders import PyMuPDFLoader
 
 class PDFParser(BaseParser):
+    
     def save_file(self):
         """
         Save the PDF file to the directory = self.dir
+
         :return: The file path where the file is saved.
         """
         # Create the directory if it does not exist yet
@@ -26,10 +28,14 @@ class PDFParser(BaseParser):
     def load_and_parse(self):
         """
         Load and parse the PDF file.
-        :return: List of Langchain Document objects.
+        Note: 1 document = 1 page. e.g. if a file has 36 pages, then return a list of 36 documents
+
+        :return: Tuple[List[Document], List[Dict]] - A list of Langchain Document objects and their corresponding metadata.
         """
-        file_path = self.save_file()
+        file_path = self.save_file() # TODO: should take out this and directly reads from cloud storage after deployment
         loader = PyMuPDFLoader(file_path)
         docs = loader.load()
-        # docs = List[Document]
-        return docs
+
+        metadata = [{"filename": self.file.name, "page": doc.metadata.get('page', None)} for doc in docs]
+
+        return docs, metadata

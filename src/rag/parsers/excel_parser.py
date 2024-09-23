@@ -5,6 +5,7 @@ import pandas as pd
 from langchain_community.document_loaders import UnstructuredMarkdownLoader
 
 class ExcelParser(BaseParser):
+
     def save_file(self, sheet_name, markdown_text):
         """
         Save the Excel file (per sheet) in Markdown format to the directory = self.dir
@@ -16,7 +17,7 @@ class ExcelParser(BaseParser):
             
         md_file_path = os.path.join(self.dir, f"{self.file_basename}_{sheet_name}.md")
         if not os.path.exists(md_file_path):
-            print(f'Saving {sheet_name} sheet as md file to temp directory')
+            print(f'Saving <{sheet_name}> sheet as md file to temp directory')
             with open(md_file_path, 'w') as f:
                 f.write(markdown_text)
         
@@ -26,9 +27,12 @@ class ExcelParser(BaseParser):
     def load_and_parse(self):
         """
         Load and parse the Excel file of multiple sheets.
-        :return: List of Langchain Document objects.
+
+        :return: Tuple[List[Document], List[Dict]] - A list of Langchain Document objects and their corresponding metadata.
         """
         docs = []
+        metadata = []
+
         excel_data = pd.read_excel(self.file, sheet_name=None)  # Read all sheets
         
         # iterate over each sheet
@@ -43,9 +47,10 @@ class ExcelParser(BaseParser):
 
             loader = UnstructuredMarkdownLoader(file_path, mode="elements")
             docs.extend(loader.load())
+
+            metadata.append({"filename": self.file.name, "page": sheet_name})
         
-        # docs = List[Document]
-        return docs
+        return docs, metadata
     
     def clean_df(self, df):
         """
@@ -53,5 +58,13 @@ class ExcelParser(BaseParser):
         """
         df.dropna(how='all', inplace=True)  # Drop rows where all cells are empty
         df.dropna(axis=1, how='all', inplace=True)  # Drop columns where all cells are empty
-        df.fillna('', inplace=True)  # Replace NaN cells with empty strings
+
+        # df.fillna('', inplace=True)  # Replace NaN cells with empty strings
+        
+        # Separate numeric and non-numeric columns
+        non_numeric_columns = df.select_dtypes(include=['object']).columns
+        
+        # Replace NaN values in non-numeric (object/string) columns with empty strings
+        df[non_numeric_columns] = df[non_numeric_columns].fillna('')
+
         return df

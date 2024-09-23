@@ -129,7 +129,7 @@ class RAGAgent:
 
         # Step 3: Extract metadata for the new documents
         # new_web_pages_metadata := [{'source': source, 'refresh_frequency': freq, 'language': lang}, ...]
-        new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency, language)
+        new_web_pages_metadata = self.extract_web_metadata(new_web_pages, refresh_frequency, language)
 
         # Step 4: Clean content before splitting
         self.text_processor.clean_page_content(new_web_pages)
@@ -210,17 +210,24 @@ class RAGAgent:
         """
         file_ext = os.path.splitext(file.name)[1].lower()
 
-        if file_ext not in self._file_parsers:
-            # Instantiate a new parser object if it doesn't exist in the dictionary
-            if file_ext == '.pdf':
-                self._file_parsers[file_ext] = PDFParser(file)
-            elif file_ext in ['.xls', '.xlsx']:
-                self._file_parsers[file_ext] = ExcelParser(file)
-            else:
-                raise ValueError(f"Unsupported file type: {file_ext}")
+        if file_ext == '.pdf':
+            self._file_parsers[file_ext] = PDFParser(file)
+        elif file_ext in ['.xls', '.xlsx']:
+            self._file_parsers[file_ext] = ExcelParser(file)
         else:
-            # Update the existing parser with the new file
-            self._file_parsers[file_ext].file = file
+            raise ValueError(f"Unsupported file type: {file_ext}")
+
+        # if file_ext not in self._file_parsers:
+        #     # Instantiate a new parser object if it doesn't exist in the dictionary
+        #     if file_ext == '.pdf':
+        #         self._file_parsers[file_ext] = PDFParser(file)
+        #     elif file_ext in ['.xls', '.xlsx']:
+        #         self._file_parsers[file_ext] = ExcelParser(file)
+        #     else:
+        #         raise ValueError(f"Unsupported file type: {file_ext}")
+        # else:
+        #     # Update the existing parser with the new file
+        #     self._file_parsers[file_ext].file = file
 
         return self._file_parsers[file_ext]
     
@@ -283,23 +290,47 @@ class RAGAgent:
 
         return new_docs, expired_docs, up_to_date_docs
     
-    def extract_metadata(self, docs, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
+    def extract_web_metadata(self, docs, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
         """
-        Extract metadata from the documents.
+        Extract metadata from the web page documents.
 
         :param docs: List[Document]
         :param refresh_frequency: The re-scraping frequency in days for web contents. Keep None for uploaded files.
         :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese)
-        :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency}, {...}]
+        :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency}]
         """
         document_info_list = []
         for doc in docs:
             source = doc.metadata.get('source', None)
             if source:
-                document_info_list.append({'source': source, 'refresh_frequency': refresh_frequency, 'language': language})
+                atom = {'source': source, 'refresh_frequency': refresh_frequency, 'language': language}
+                
+                document_info_list.append(atom)
             else:
                 print(f"Source not found in metadata: {doc.metadata}")
 
+        return document_info_list
+    
+    def extract_file_metadata(self, docs, language: Literal["en", "zh"] = "en"):
+        """
+        Extract metadata from the documents parsed from uploaded files (pdf, excel).
+
+        :param docs: List[Document]
+        :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese)
+        :return: List[dict]
+        """
+        document_info_list = []
+        for doc in docs:
+            source = doc.metadata.get('source', None)
+            if source:
+                atom = {'source': source, 'language': language}
+                page = doc.metadata.get('page', None)
+                if page:
+                    atom['page'] = page
+                document_info_list.append(atom)
+            else:
+                print(f"Source not found in metadata: {doc.metadata}")
+        
         return document_info_list
     
 
@@ -571,7 +602,7 @@ class RAGAgent:
             "formulate a standalone question which can be understood "
             "without the chat history. Do NOT answer the question, "
             "just reformulate it if needed and otherwise return it as is.\n"
-            "根据聊天记录和最新的用户问题，请将问题重新表述为一个可以在没有聊天记录的情况下理解的独立问题。"
+            "根据聊天记录和最新的用户问题，请将最新的用户问题重新表述为一个可以在没有聊天记录的情况下理解的独立问题。"
             "不要回答问题，只需要重新表述即可。如果没有必要重新表述，则原样返回问题。"
         )
 

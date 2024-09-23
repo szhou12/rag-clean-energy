@@ -5,9 +5,15 @@ from abc import ABC, abstractmethod
 # ABC in BaseParser(ABC) defines the BaseParser class as an abstract class
 class BaseParser(ABC):
     def __init__(self, file, dir=None):
+        """
+        Initialize the BaseParser object.
+
+        :param file: The uploaded / auto-downloaded file object.
+        :param dir: The directory to save the file. Default is 'temp'.
+        """
         self.file = file
         self.file_basename, self.file_ext = os.path.splitext(self.file.name)
-        # TODO: AFTER setup databse, use env variable to store the directory path
+        # TODO: AFTER setup databse, use env variable to store the directory path. necessary or not???
         self.dir = dir or os.path.join(os.getcwd(), 'temp')
     
     @abstractmethod
@@ -25,6 +31,7 @@ class BaseParser(ABC):
     def load_and_parse(self):
         """
         Load the file. MUST be implemented by subclasses.
-        :return: List of lists of Langchain document objects. [List[Document], List[Document], ...]
+
+        :return: List[Document] - List of Langchain Document objects.
         """
         raise NotImplementedError("Subclasses must implement this method")

@@ -4,7 +4,9 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
-from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_community.document_loaders import PyMuPDFLoader, UnstructuredExcelLoader
+import os
+from rag.parsers import ExcelParser
 
 import scrape
 import upload
@@ -159,15 +161,42 @@ with st.sidebar:
 
     uploaded_file = st.file_uploader("Choose a file", type=["pdf", "xlsx", "docx", "txt"])
     if uploaded_file is not None:
-        # doc_nodes = upload.get_pdf_text_langchain(uploaded_file)
-        doc_nodes_list = upload.split_text_langchain(uploaded_file)
-        # vector_store = upload.save_vectorstore(doc_nodes)
-        vector_store = upload.create_vectorstore()
-        for doc_nodes in doc_nodes_list:
-            # doc_nodes = list of Document objects
-            upload.add_to_vectorstore(vector_store, doc_nodes)
+        # # doc_nodes = upload.get_pdf_text_langchain(uploaded_file)
+        # doc_nodes_list = upload.split_text_langchain(uploaded_file)
+        # # vector_store = upload.save_vectorstore(doc_nodes)
+        # vector_store = upload.create_vectorstore()
+        # for doc_nodes in doc_nodes_list:
+        #     # doc_nodes = list of Document objects
+        #     upload.add_to_vectorstore(vector_store, doc_nodes)
+        # st.session_state.vector_store = vector_store
+        # st.write("File Uploaded and Parsed Successfully!")
+
+        #### Step 1 - Save to /temp ####
+        temp_dir = os.path.join(os.path.dirname(__file__), '..', 'temp')
+        file_path = os.path.join(temp_dir, uploaded_file.name)
+        if not os.path.exists(file_path):
+            print('Saving file to temp directory')
+            with open(os.path.join(temp_dir, uploaded_file.name), mode='wb') as w:
+                w.write(uploaded_file.getvalue())
+        
+
+        #### Step 2 - Load PDF by PyMuPDF using file_path <str> ####
+        ## 1 document = 1 page. e.g. if 36 pages, then list of 36 documents
+        # loader = PyMuPDFLoader(file_path)
+        # doc = loader.load()
+        # st.write(f"Total loaded documents: {len(doc)}")
+        # st.write(f"One loaded document Metadata: \n{doc[0].metadata}")
+        # st.write(f"One loaded document page_content: \n{doc[0].page_content}")
+
+        #### Step 2 - Load EXCEL by UnstructuredExcelLoader using file_path <str> ####
+        parser = ExcelParser(uploaded_file)
+        docs = parser.load_and_parse()
+        st.write(f"Total loaded documents: {len(docs)}")
+        st.write(f"One loaded document Metadata: \n{docs[0].metadata}")
+        st.write(f"One loaded document page_content: \n{docs[0].page_content}")
+        
 
 
-        st.session_state.vector_store = vector_store
-        st.write("File Uploaded and Parsed Successfully!")
+        
+
         

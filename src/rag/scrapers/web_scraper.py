@@ -44,7 +44,7 @@ class WebScraper:
         :param url: The root URL to start scraping from.
         :param max_pages: Maximum number of pages to scrape (default is 1).
         :param autodownload: If True, automatically download files attached to each web page.
-        :return: List of Langchain Document objects loaded from the URLs, List of newly downloaded file paths in current scraping session
+        :return: (List[Document], List[str]) - List of Langchain Document objects loaded from the URLs, List of newly downloaded file paths in current scraping session
         """
         visited = set() # visited url in current round of scraping session
         docs = []
