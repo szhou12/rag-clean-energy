@@ -122,6 +122,7 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 8. **TODO** Use `logging` to log errors and debug information
 
 - 明天
+1. DAO: `FilePage`, `FilePageChunk`. Modify `extract_metadata`
 1. `RAGAgent`: update `refresh_frequency` by a given list of sources or map `{source: url, refresh_freq: 2}`?
 2. persist Chroma!!!
     - 2 collections: one for English texts, another for Chinese texts

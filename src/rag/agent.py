@@ -55,7 +55,7 @@ class RAGAgent:
                 <Details>: provide details to each key point and enrich the details with numbers and statistics
                 <Conclusion>: give a proper conclusion
                 For any numbers or statistics you provide, please add the source in brackets.
-                At the end of the report, please provide a list of references.
+                At the end of the report, please provide a list of references. 
                 You should respond with the whole report in Chinese.
                 """
 
@@ -129,7 +129,7 @@ class RAGAgent:
 
         # Step 3: Extract metadata for the new documents
         # new_web_pages_metadata := [{'source': source, 'refresh_frequency': freq, 'language': lang}, ...]
-        new_web_pages_metadata = self.extract_web_metadata(new_web_pages, refresh_frequency, language)
+        new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency, language)
 
         # Step 4: Clean content before splitting
         self.text_processor.clean_page_content(new_web_pages)
@@ -289,6 +289,38 @@ class RAGAgent:
             self.mysql_manager.close_session(session)
 
         return new_docs, expired_docs, up_to_date_docs
+    
+    def extract_metadata(self, docs, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en", extra_metadata: Optional[dict] = None):
+        """
+        Extract metadata from the web page documents and optionally augment it with additional metadata.
+
+        :param docs: List[Document]
+        :param refresh_frequency: The re-scraping frequency in days for web contents. Keep None for uploaded files.
+        :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese).
+        :param extra_metadata: Optional dictionary to augment each atom with additional metadata.
+        :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency, 'language': language, ...}]
+        """
+        document_info_list = []
+        
+        for doc in docs:
+            source = doc.metadata.get('source', None)
+            if source:
+                # Step 1: Create the base atom dictionary
+                atom = {
+                    'source': source, 
+                    'refresh_frequency': refresh_frequency, 
+                    'language': language
+                }
+
+                # Step 2: Merge additional metadata from the dictionary (if provided) into atom
+                if extra_metadata:
+                    atom.update(extra_metadata)
+                
+                document_info_list.append(atom)
+            else:
+                print(f"Source not found in metadata: {doc.metadata}")
+
+        return document_info_list
     
     def extract_web_metadata(self, docs, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
         """
@@ -527,7 +559,8 @@ class RAGAgent:
         :return: Formatted response to the query
         """
         # Step 1: Retrieve relevant chunks from the vector store
-        relevant_chunks = self._retrieve_contextual_docs()
+        # TODO: relevant_chunks = self._retrieve_contextual_docs()
+        relevant_chunks = self._retrieve_bilingual_contextual_docs()
         
         # Step 2: Format the response using the predefined template
         retrieval_chain = self._format_response(relevant_chunks)
@@ -593,7 +626,8 @@ class RAGAgent:
         chinese_retriever = self.vector_stores['zh'].as_retriever()
 
         # Initialize the bilingual retriever with both English and Chinese retrievers
-        bilingual_retriever = BilingualRetriever(english_retriever=english_retriever, chinese_retriever=chinese_retriever)
+        bilingual_retriever = BilingualRetriever(english_retriever=english_retriever, 
+                                                 chinese_retriever=chinese_retriever)
 
         # Define the prompt to contextualize the query using the chat history
         contextualize_q_system_prompt = (

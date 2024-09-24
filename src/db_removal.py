@@ -24,6 +24,7 @@ def remove_chroma():
             print(f"inspect first 10 items: {collection.peek()}")
             print(f"inspect total # of items: {collection.count()}")
             client.delete_collection(name=collection_name) # Delete a collection and all associated embeddings, documents, and metadata. This is destructive and not reversible!
+            print(f"Collection {collection_name} deleted!!!")
         except Exception as e:
             print(f"Collection {collection_name} not found: {e}")
 
@@ -42,6 +43,7 @@ def remove_mysql():
     
     if database_exists(TEST_DB_URI):
         drop_database(TEST_DB_URI)
+        print(f"Database {TEST_DB_CONFIG['database']} dropped!!!")
 
 
 

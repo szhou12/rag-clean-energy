@@ -98,7 +98,8 @@ if user_query:
             st.write("triggering RAG Agent...")
 
             #### Debug by inspecting ####
-            retrieved_docs_runnable = rag_agent._retrieve_contextual_info()
+            # TODO: retrieved_docs_runnable = rag_agent._retrieve_contextual_docs()
+            retrieved_docs_runnable = rag_agent._retrieve_bilingual_contextual_docs()
             # Execute the Runnable to get the list of Documents
             retrieved_docs = retrieved_docs_runnable.invoke({
                 "chat_history": st.session_state.chat_history,
@@ -117,6 +118,7 @@ with st.sidebar:
     url = st.text_input("Website URL")
     max_pages = st.number_input("Maximum number of pages to scrape:", min_value=1, value=1)
     autodownload = st.checkbox("Enable autodownload of attached files", value=False)
+    language = st.selectbox("Select Language", options=["en", "zh"], index=0)
 
     # Button to start scraping
     if st.button("Start Scraping"):
@@ -124,7 +126,7 @@ with st.sidebar:
             with st.spinner("Scraping..."):
                 try:
                     # Call the RAGAgent's process_url method to scrape content
-                    num_docs, num_downloaded_files = rag_agent.process_url(url, max_pages=max_pages, autodownload=autodownload, language='en')
+                    num_docs, num_downloaded_files = rag_agent.process_url(url, max_pages=max_pages, autodownload=autodownload, language=language)
 
                     # Display the scraping results
                     st.success(f"Scraping completed! {num_docs} pages scraped.")

@@ -11,6 +11,7 @@ class ChromaVectorStore(VectorStore):
         super().__init__(embedding_model)
 
         self._persist_directory = None
+        self.collection_name = collection_name
 
         # TODO: Re-configure the directory after deploy to cloud
         # Set the hardcoded base directory
@@ -24,7 +25,7 @@ class ChromaVectorStore(VectorStore):
             self._persist_directory = full_path
 
         self.vector_store = Chroma(
-            collection_name=collection_name,
+            collection_name=self.collection_name,
             embedding_function=embedding_model,
             persist_directory=self._persist_directory,
         )
@@ -65,6 +66,8 @@ class ChromaVectorStore(VectorStore):
 
             # Attempt to add documents to the vector store
             self.vector_store.add_documents(documents=filter_complex_metadata(documents), ids=uuids)
+
+            print(f"Added {len(documents)} document chunks to Chroma in collection {self.collection_name}")
 
             return document_info_list
 
