@@ -17,7 +17,9 @@ streamlit run src/demo.py
 streamlit run src/app.py
 ```
 
-Test link: https://www.iea.org/topics/global-energy-transitions-stocktake
+Test link: 
+- https://www.iea.org/topics/global-energy-transitions-stocktake
+- https://rmi.org.cn/
 
 ## MySQL
 ### Terminal Commands

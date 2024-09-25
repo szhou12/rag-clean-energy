@@ -8,6 +8,7 @@ from pydantic import Field
 class BilingualRetriever(BaseRetriever):
     """Custom retriever that retrieves relevant documents from both English and Chinese collections."""
 
+    # Use Field(...) to indicate that these fields are required but don't have default values.
     english_retriever: BaseRetriever = Field(...)
     chinese_retriever: BaseRetriever = Field(...)
 
@@ -18,13 +19,8 @@ class BilingualRetriever(BaseRetriever):
         :param english_retriever: The retriever responsible for English documents.
         :param chinese_retriever: The retriever responsible for Chinese documents.
         """
+        # Pass the retrievers to the super().__init__() call, which initializes the Pydantic model correctly.
         super().__init__(english_retriever=english_retriever, chinese_retriever=chinese_retriever)
-        # super().__init__()
-        # self.english_retriever = english_retriever
-        # self.chinese_retriever = chinese_retriever
-
-    # class Config:
-    #     arbitrary_types_allowed = True
 
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun

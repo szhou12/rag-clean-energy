@@ -48,7 +48,7 @@ class ExcelParser(BaseParser):
             loader = UnstructuredMarkdownLoader(file_path, mode="elements")
             docs.extend(loader.load())
 
-            metadata.append({"filename": self.file.name, "page": sheet_name})
+            metadata.append({"source": self.file.name, "page": sheet_name})
         
         return docs, metadata
     

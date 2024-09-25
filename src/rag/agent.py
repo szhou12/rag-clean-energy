@@ -121,7 +121,7 @@ class RAGAgent:
 
         # Step 2: Categorize the web_pages into new, expired, and up-to-date
         # TODO: handle expired_docs, up_to_date_docs later
-        new_web_pages, expired_web_pages, up_to_date_web_pages = self._categorize_documents(web_pages)
+        new_web_pages, expired_web_pages, up_to_date_web_pages = self._categorize_web_documents(web_pages)
 
         if not new_web_pages:
             print("No new web pages scraped")
@@ -141,7 +141,7 @@ class RAGAgent:
         # Step 6: Insert data: insert content into Chroma, insert metadata into MySQL
         # chunk_metadata_list := [{'source': source, 'id': chunk_id}, ...]
         try:
-            chunk_metadata_list = self.insert_data(docs_metadata=new_web_pages_metadata, chunks=new_web_pages_chunks, language=language)
+            chunk_metadata_list = self.insert_web_data(docs_metadata=new_web_pages_metadata, chunks=new_web_pages_chunks, language=language)
             print(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
         except RuntimeError as e:
             print(f"Failed to insert data into Chroma and MySQL due to an error: {e}")
@@ -168,7 +168,7 @@ class RAGAgent:
         update_web_page_chunks = self.text_processor.split_text(update_web_page)
 
         try:
-            chunk_metadata_list = self.update_data(source=url, chunks=update_web_page_chunks)
+            chunk_metadata_list = self.update_web_data(source=url, chunks=update_web_page_chunks)
             print(f"Data successfully updated in both Chroma and MySQL: {chunk_metadata_list}")
         except RuntimeError as e:
             print(f"Failed to update data in Chroma and MySQL due to an error: {e}")
@@ -257,7 +257,7 @@ class RAGAgent:
             raise ValueError(f"Unsupported embedder type: {embedder_type}")
         
 
-    def _categorize_documents(self, docs):
+    def _categorize_web_documents(self, docs):
         """
         Categorize documents (scraped web page) into new, expired, and up-to-date based on their status in the MySQL database.
         
@@ -366,7 +366,7 @@ class RAGAgent:
         return document_info_list
     
 
-    def insert_data(self, docs_metadata, chunks, language: Literal["en", "zh"]):
+    def insert_web_data(self, docs_metadata, chunks, language: Literal["en", "zh"]):
         """
         Wrapper function to handle atomic insertion into Chroma (for embeddings) and MySQL (for metadata).
         Implements the manual two-phase commit (2PC) pattern.
@@ -412,7 +412,7 @@ class RAGAgent:
         finally:
             self.mysql_manager.close_session(session)
         
-    def update_data(self, source, chunks):
+    def update_web_data(self, source, chunks):
         """
         Update data for a SINGLE source URL and its chunks.
         Implements atomic behavior using manual two-phase commit (2PC) pattern.
@@ -426,9 +426,9 @@ class RAGAgent:
         try:
             # Step 1: Get
             # 1-1: MySQL: Get old chunk ids by source
-            old_chunk_ids = self.mysql_manager.get_chunk_ids_by_single_source(session, source)
+            old_chunk_ids = self.mysql_manager.get_web_page_chunk_ids_by_single_source(session, source)
             # 1-2: MySQL: Get language by source
-            language = self.mysql_manager.get_language_by_single_source(session, source)
+            language = self.mysql_manager.get_web_page_language_by_single_source(session, source)
             # 1-3: Chroma: Get old documents from Chroma before deletion (for potential rollback)
             # TODO: old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
             old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
@@ -481,7 +481,7 @@ class RAGAgent:
             self.mysql_manager.close_session(session)
 
 
-    def delete_data_by_sources(self, sources: list[str]):
+    def delete_web_data_by_sources(self, sources: list[str]):
         """
         Delete data for multiple sources by their language.
         
@@ -489,17 +489,17 @@ class RAGAgent:
         :return: None
         """
         # Get and categorize sources by language: {'en': [source1, source2], 'zh': [source3, source4]}
-        sources_by_language = self.mysql_manager.get_languages_by_sources(sources)
+        sources_by_language = self.mysql_manager.get_web_page_languages_by_sources(sources)
 
         # Process deletion for English sources
         if sources_by_language['en']:
-            self.delete_content_and_metadata(sources_by_language['en'], language="en")
+            self.delete_web_content_and_metadata(sources_by_language['en'], language="en")
 
         # Process deletion for Chinese sources
         if sources_by_language['zh']:
-            self.delete_content_and_metadata(sources_by_language['zh'], language="zh")
+            self.delete_web_content_and_metadata(sources_by_language['zh'], language="zh")
     
-    def delete_content_and_metadata(self, sources: list[str], language: Literal["en", "zh"]):
+    def delete_web_content_and_metadata(self, sources: list[str], language: Literal["en", "zh"]):
         """
         Delete content data from Chroma and metadata from MySQL for a list of sources.
         Implements atomic behavior using manual two-phase commit (2PC) pattern.
@@ -512,7 +512,7 @@ class RAGAgent:
         try:
             # Step 1: Get
             # 1-1: MySQL: Get all chunk ids for the given sources using get_chunk_ids_by_sources
-            old_chunk_ids = self.mysql_manager.get_chunk_ids_by_sources(session, sources)
+            old_chunk_ids = self.mysql_manager.get_web_page_chunk_ids_by_sources(session, sources)
             # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
             old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
 

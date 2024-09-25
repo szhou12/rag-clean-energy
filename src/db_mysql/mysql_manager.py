@@ -253,7 +253,7 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
 
         
-    def get_chunk_ids_by_single_source(self, session, source: str):
+    def get_web_page_chunk_ids_by_single_source(self, session, source: str):
         """
         Get all chunk IDs for the given the source.
 
@@ -270,7 +270,7 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for {source}: {e}")
             return []
         
-    def get_chunk_ids_by_sources(self, session, sources: list[str]):
+    def get_web_page_chunk_ids_by_sources(self, session, sources: list[str]):
         """
         Get all chunk IDs for the given list of sources.
 
@@ -291,7 +291,7 @@ class MySQLManager:
             return []
         
         
-    def get_language_by_single_source(self, session, source: str):
+    def get_web_page_language_by_single_source(self, session, source: str):
         """
         Get the language of the web page for the given source.
 
@@ -308,7 +308,7 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching language for {source}: {e}")
             return None
     
-    def get_languages_by_sources(self, session, sources: list[str]) -> dict[str, list[str]]:
+    def get_web_page_languages_by_sources(self, session, sources: list[str]) -> dict[str, list[str]]:
         """
         Get the languages of the web pages for the given list of sources and group them by 'en' and 'zh'.
 

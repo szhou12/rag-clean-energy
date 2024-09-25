@@ -1,7 +1,7 @@
 # src/db_mysql/dao/models.py
 
-from typing import Optional
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from typing import Optional, Literal
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, ForeignKeyConstraint
 from sqlalchemy.orm import relationship, declarative_base
 import hashlib
 from datetime import datetime, timedelta
@@ -26,7 +26,7 @@ class WebPage(Base):
     # Define relationship with/Create a link to WebPageChunk
     chunks = relationship("WebPageChunk", back_populates="web_page")
 
-    def __init__(self, source: str, freq: Optional[int] = None, language: str = 'en'):
+    def __init__(self, source: str, freq: Optional[int] = None, language: Literal["en", "zh"] = "en"):
         """
         Initialize a WebPage instance.
         
@@ -83,3 +83,56 @@ class WebPageChunk(Base):
 
     def __repr__(self):
         return f'<WebPageChunk(chunk_id={self.id}, source_url={self.source})>'
+    
+
+class FilePage(Base):
+    __tablename__ = 'file_page'
+    id = Column(Integer, primary_key=True)
+    source = Column(String(255), nullable=False, index=True) # Source file name
+    page = Column(String(255), nullable=False) # PDF page number or Excel sheet name
+    date = Column(DateTime, nullable=False, default=datetime.now) # The date when the file page was parsed
+    language = Column(String(10), nullable=False, default='en') # Language of the content
+
+    # Define relationship with/Create a link to FilePageChunk
+    chunks = relationship("FilePageChunk", back_populates="file_page")
+
+    def __init__(self, source: str, page: str, language: Literal["en", "zh"] = "en"):
+        """
+        Initialize a FilePage instance.
+        
+        :param source: File name of the uploaded file.
+        :param page: PDF page number or Excel sheet name.
+        :param language: The language of the file content (e.g., 'en', 'zh'). Default is 'en'.
+        """
+        self.source = source
+        self.page = page
+        self.language = language
+        self.date = datetime.now()
+
+    def __repr__(self):
+        return f'<FilePage(id={self.id}, source={self.source}, page={self.page}, language={self.language})>'
+    
+class FilePageChunk(Base):
+    __tablename__ = 'file_page_chunk'
+
+    id = Column(String(36), primary_key=True)
+    
+    # Composite foreign key referencing both source and page from FilePage
+    source = Column(String(255), nullable=False)
+    page = Column(String(255), nullable=False)
+
+    # Define foreign key constraint on (source, page)
+    __table_args__ = (
+        ForeignKeyConstraint(['source', 'page'], ['file_page.source', 'file_page.page']),
+    )
+
+    # Relationship back to the parent FilePage
+    file_page = relationship("FilePage", back_populates="chunks")
+
+    def __init__(self, id: str, source: str, page: str):
+        self.id = id
+        self.source = source
+        self.page = page
+
+    def __repr__(self):
+        return f'<FilePageChunk(id={self.id}, source={self.source}, page={self.page})>'
