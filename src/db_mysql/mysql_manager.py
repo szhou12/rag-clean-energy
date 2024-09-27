@@ -1,6 +1,6 @@
 # src/db_mysql/mysql_manager.py
 
-from db_mysql.dao import Base, WebPage, WebPageChunk
+from db_mysql.dao import Base, WebPage, WebPageChunk, FilePage, FilePageChunk
 from sqlalchemy import create_engine, insert, select, delete, update
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker
@@ -117,7 +117,7 @@ class MySQLManager:
         Insert multiple new web pages in batch.
 
         :param session: SQLAlchemy session to interact with the database.
-        :param document_info_list: List[dict] [{'source': url, 'refresh_frequency': freq, 'language': lang}, {...}]
+        :param document_info_list: List[dict] [{'source': url, 'refresh_frequency': freq, 'language': lang}]
         """
         try:
             # Add url checksum, current date, and language to each entry
@@ -136,13 +136,35 @@ class MySQLManager:
         except SQLAlchemyError as e:
             session.rollback()  # Rollback transaction in case of error
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPage: {e}")
-        
+
+    def insert_file_pages(self, session, document_info_list):
+        """
+        Insert multiple new file pages in batch.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param document_info_list: List[dict] [{'source': filename, 'page': page number/sheet name, 'language': lang}]
+        """
+        try:
+            for document in document_info_list:
+                source = document.get('source')
+                if source:
+                    # Add the current date for the web page
+                    document['date'] = datetime.now()
+
+            # Perform bulk insert using ORM's insert statement
+            sql_stmt = insert(FilePage)
+            session.execute(sql_stmt, document_info_list)
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePage: {e}")
+
+
     def insert_web_page_chunks(self, session, chunk_info_list):
         """
         Insert chunks associated with a web page in batch.
 
         :param session: SQLAlchemy session to interact with the database.
-        :param chunk_info_list: List[dict] [{'id': uuid4, 'source': source}, {...}]
+        :param chunk_info_list: List[dict] [{'id': uuid4, 'source': source}]
         """
         try:            
             # Perform bulk insert using ORM's insert statement and Session.execute()
@@ -151,6 +173,21 @@ class MySQLManager:
         except SQLAlchemyError as e:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
+        
+    def insert_file_page_chunks(self, session, chunk_info_list):
+        """
+        Insert chunks associated with a file page in batch.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param chunk_info_list: List[dict] [{'id': uuid4, 'source': filename, 'page': page number/sheet name}]
+        """
+        try:
+            # Perform bulk insert using ORM's insert statement and Session.execute()
+            sql_stmt = insert(FilePageChunk)
+            session.execute(sql_stmt, chunk_info_list)
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePageChunk: {e}")
 
     def update_web_pages_date(self, session, urls: list[str]):
         """

@@ -104,6 +104,35 @@ class RAGAgent:
             ),
         }
 
+    def process_file(self, file, language: Literal["en", "zh"] = "en"):
+        """
+        TODO: to be completed
+        Process an uploaded file: parse file content, embed, and save to vector store.
+        
+        :param file: The uploaded file. Currently support: PDF (multiple pages), Excel (multiple sheets)
+        :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
+        :return: None
+        """
+        # Step 1: Select file parser based on the file extension, load and parse the file
+        parser = self._select_parser(file)
+        docs, metadata = parser.load_and_parse()
+        # augment metadata with language
+        for item in metadata:
+            item["language"] = language
+            item["page"] = str(item["page"])
+
+        # Step 2: Clean content before splitting
+        self.text_processor.clean_page_content(docs)
+        # TODO: if Excel, replace .page_content with .metadata['text_as_html]
+
+        # Step 3: Split content into manageable chunks
+        new_file_pages_chunks = self.text_processor.split_text(docs)
+
+        # Step 4: Embed each chunk (Document) and save to the vector store
+        chunk_ids = self.vector_store.add_documents(new_file_pages_chunks)
+        
+        # Step 4: Save embeddings and chunks to the vector store
+        # self.vector_store.save(embeddings, chunks)
         
     def process_url(self, url: str, max_pages: int = 1, autodownload: bool = False, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
         """
@@ -129,7 +158,7 @@ class RAGAgent:
 
         # Step 3: Extract metadata for the new documents
         # new_web_pages_metadata := [{'source': source, 'refresh_frequency': freq, 'language': lang}, ...]
-        new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency, language)
+        new_web_pages_metadata = self.extract_web_metadata(new_web_pages, refresh_frequency, language)
 
         # Step 4: Clean content before splitting
         self.text_processor.clean_page_content(new_web_pages)
@@ -176,31 +205,6 @@ class RAGAgent:
         # Reset self.scraped_urls in WebScraper instance
         self.scraper.fetch_active_urls_from_db()
         
-
-    def process_file(self, file):
-        """
-        TODO: to be completed
-        Process an uploaded file: parse file content, embed, and save to vector store.
-        
-        :param file: The uploaded file. Currently support: PDF, Excel (multiple sheets)
-        :return: None
-        """
-        # Step 1: Select file parser based on the file extension, load and parse the file
-        parser = self._select_parser(file)
-        docs = parser.load_and_parse()
-
-        # Step 2: Clean content before splitting
-        self.text_processor.clean_page_content(docs)
-
-        # Step 3: Split content into manageable chunks
-        chunks = self.text_processor.split_text(docs)
-
-        # Step 4: Embed each chunk (Document) and save to the vector store
-        chunk_ids = self.vector_store.add_documents(chunks)
-        
-        # Step 4: Save embeddings and chunks to the vector store
-        # self.vector_store.save(embeddings, chunks)
-
 
     def _select_parser(self, file):
         """
@@ -329,13 +333,17 @@ class RAGAgent:
         :param docs: List[Document]
         :param refresh_frequency: The re-scraping frequency in days for web contents. Keep None for uploaded files.
         :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese)
-        :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency}]
+        :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency, 'language': language}]
         """
         document_info_list = []
         for doc in docs:
             source = doc.metadata.get('source', None)
             if source:
-                atom = {'source': source, 'refresh_frequency': refresh_frequency, 'language': language}
+                atom = {
+                    'source': source, 
+                    'refresh_frequency': refresh_frequency, 
+                    'language': language
+                }
                 
                 document_info_list.append(atom)
             else:
@@ -343,32 +351,33 @@ class RAGAgent:
 
         return document_info_list
     
-    def extract_file_metadata(self, docs, language: Literal["en", "zh"] = "en"):
-        """
-        Extract metadata from the documents parsed from uploaded files (pdf, excel).
+    # def extract_file_metadata(self, docs, docs_metadata, language: Literal["en", "zh"] = "en"):
+    #     """
+    #     Extract metadata from the documents parsed from uploaded files (pdf, excel).
 
-        :param docs: List[Document]
-        :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese)
-        :return: List[dict]
-        """
-        document_info_list = []
-        for doc in docs:
-            source = doc.metadata.get('source', None)
-            if source:
-                atom = {'source': source, 'language': language}
-                page = doc.metadata.get('page', None)
-                if page:
-                    atom['page'] = page
-                document_info_list.append(atom)
-            else:
-                print(f"Source not found in metadata: {doc.metadata}")
+    #     :param docs: List[Document]
+    #     :param docs_metadata: List[dict] - Metadata of the documents generated along with docs. [{'source': source, 'page': page}]
+    #     :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese)
+    #     :return: List[dict]
+    #     """
+    #     document_info_list = []
+    #     for doc in docs:
+    #         source = doc.metadata.get('source', None)
+    #         if source:
+    #             atom = {'source': source, 'language': language}
+    #             page = doc.metadata.get('page', None)
+    #             if page:
+    #                 atom['page'] = page
+    #             document_info_list.append(atom)
+    #         else:
+    #             print(f"Source not found in metadata: {doc.metadata}")
         
-        return document_info_list
+    #     return document_info_list
     
 
     def insert_web_data(self, docs_metadata, chunks, language: Literal["en", "zh"]):
         """
-        Wrapper function to handle atomic insertion into Chroma (for embeddings) and MySQL (for metadata).
+        Wrapper function to handle atomic insertion of scraped web content into Chroma (for embeddings) and MySQL (for metadata).
         Implements the manual two-phase commit (2PC) pattern.
         
         :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL.
@@ -380,7 +389,6 @@ class RAGAgent:
         session = self.mysql_manager.create_session()
         try:
             # Step 1: Insert embeddings into Chroma (vector store)
-            # TODO: chunks_metadata = self.vector_store.add_documents(documents=chunks)
             chunks_metadata = self.vector_stores[language].add_documents(documents=chunks)
 
             # Step 2: Insert metadata into MySQL
@@ -402,7 +410,50 @@ class RAGAgent:
             if 'chunks_metadata' in locals():
                 try:
                     chunk_ids = [item['id'] for item in chunks_metadata]
-                    # TODO: self.vector_store.delete(ids=chunk_ids)  # Delete embeddings by ids in Chroma
+                    self.vector_stores[language].delete(ids=chunk_ids)  # Delete embeddings by ids in Chroma
+                except Exception as chroma_rollback_error:
+                    print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
+
+                raise RuntimeError(f"Data insertion failed: {e}")
+        
+        finally:
+            self.mysql_manager.close_session(session)
+
+    def insert_file_data(self, docs_metadata, chunks, language: Literal["en", "zh"]):
+        """
+        Wrapper function to handle atomic insertion of uploaded file content into Chroma (for embeddings) and MySQL (for metadata).
+        Implements the manual two-phase commit (2PC) pattern.
+        
+        :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL.
+        :param chunks: List[Document] - Chunks of document text to be inserted into Chroma.
+        :param language: The language of the inserted data content. Only "en" (English) or "zh" (Chinese) are accepted.
+        :raises: Exception if any part of the insertion process fails.
+        :return: List[dict] chunks_metadata - Metadata of chunks inserted into Chroma.
+        """
+        session = self.mysql_manager.create_session()
+        try:
+            # Step 1: Insert embeddings into Chroma (vector store)
+            chunks_metadata = self.vector_stores[language].add_documents(documents=chunks, secondary_key='page')
+
+            # Step 2: Insert metadata into MySQL
+            self.mysql_manager.insert_file_pages(session, docs_metadata)
+            self.mysql_manager.insert_file_page_chunks(session, chunks_metadata)
+
+            # Step 3: Commit MySQL transaction
+            session.commit()
+
+            # If both steps succeed, return the chunk metadata
+            return chunks_metadata
+        
+        except Exception as e:
+            # Rollback MySQL transaction if any error occurs
+            session.rollback()
+            print(f"Error during data insertion into Chroma and MySQL: {e}")
+
+            # Rollback Chroma changes if MySQL fails
+            if 'chunks_metadata' in locals():
+                try:
+                    chunk_ids = [item['id'] for item in chunks_metadata]
                     self.vector_stores[language].delete(ids=chunk_ids)  # Delete embeddings by ids in Chroma
                 except Exception as chroma_rollback_error:
                     print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")

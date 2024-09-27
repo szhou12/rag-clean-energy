@@ -84,7 +84,7 @@ class WebPageChunk(Base):
     def __repr__(self):
         return f'<WebPageChunk(chunk_id={self.id}, source_url={self.source})>'
     
-
+    
 class FilePage(Base):
     __tablename__ = 'file_page'
     id = Column(Integer, primary_key=True)
@@ -111,6 +111,25 @@ class FilePage(Base):
 
     def __repr__(self):
         return f'<FilePage(id={self.id}, source={self.source}, page={self.page}, language={self.language})>'
+    
+    def days_since_added(self):
+        """
+        Calculate how many days it has been since the file page was added to the database.
+
+        :return: Number of days since the file page was added
+        """
+        current_time = datetime.now()
+        time_difference = current_time - self.date
+        return time_difference.days
+
+    def exist_in_db_over(self, days: int = 7):
+        """
+        Check if the file page has been in the database for more than a certain number of days.
+
+        :param days: The number of days to check
+        :return: True if the file page has been in the database for more than 'days', otherwise False
+        """
+        return self.days_since_added() > days
     
 class FilePageChunk(Base):
     __tablename__ = 'file_page_chunk'
