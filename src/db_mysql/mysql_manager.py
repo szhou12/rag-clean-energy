@@ -1,7 +1,7 @@
 # src/db_mysql/mysql_manager.py
 
 from db_mysql.dao import Base, WebPage, WebPageChunk, FilePage, FilePageChunk
-from sqlalchemy import create_engine, insert, select, delete, update
+from sqlalchemy import create_engine, insert, select, delete, update, tuple_
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -267,6 +267,35 @@ class MySQLManager:
         except SQLAlchemyError as e:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting WebPages: {e}")
+        
+    def delete_file_pages_by_sources_and_pages(self, session, sources_and_pages: list[dict[str, str]]):
+        """
+        Delete file pages that match the given list of (source, page) pairs.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param sources_and_pages: List of dictionaries, each containing 'source' and 'page'.
+                                Example: [{'source': 'example.pdf', 'page': '1'}, {'source': 'example.xlsx', 'page': 'Sheet1'}]
+        :return: None
+        :raises: RuntimeError if the deletion fails.
+        """
+        if not sources_and_pages:
+            print("No source-page pairs provided for deletion.")
+            return
+
+        try:
+            # Build a list of tuples representing the (source, page) pairs
+            source_page_pairs = [(item['source'], item['page']) for item in sources_and_pages]
+
+            # Create a delete statement with a filter for the provided (source, page) pairs
+            sql_stmt = delete(FilePage).where(
+                tuple_(FilePage.source, FilePage.page).in_(source_page_pairs)
+            )
+            session.execute(sql_stmt)
+            session.commit()  # Commit the transaction to delete records
+
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting FilePages: {e}")
 
     def delete_web_page_chunks_by_ids(self, session, chunk_ids):
         """
@@ -283,6 +312,27 @@ class MySQLManager:
         try:
             # Create a delete statement with a filter for the chunk IDs
             sql_stmt = delete(WebPageChunk).where(WebPageChunk.id.in_(chunk_ids))
+            session.execute(sql_stmt)
+
+        except SQLAlchemyError as e:
+            session.rollback()  # Rollback in case of error
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
+
+    def delete_file_page_chunks_by_ids(self, session, chunk_ids):
+        """
+        Delete file page chunks that match the given list of chunk IDs.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param chunk_ids: List of chunk IDs (UUID4) to delete.
+        :return: None
+        """
+        if not chunk_ids:
+            print("No chunk IDs provided for deletion.")
+            return
+
+        try:
+            # Create a delete statement with a filter for the chunk IDs
+            sql_stmt = delete(FilePageChunk).where(FilePageChunk.id.in_(chunk_ids))
             session.execute(sql_stmt)
 
         except SQLAlchemyError as e:
@@ -325,6 +375,33 @@ class MySQLManager:
             return chunk_ids
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for batch sources {sources}: {e}")
+            return []
+
+    def get_file_page_chunk_ids(self, session, sources_and_pages: list[dict[str, str]]):
+        """
+        Get all chunk IDs for the given list of sources and pages.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param sources_and_pages: List of dictionaries where each dictionary contains a 'source' and 'page' to match.
+                                Example: [{'source': 'example.com', 'page': '1'}, {'source': 'example.com', 'page': '2'}]
+        :return: List of chunk IDs whose (source, page) pairs match the input list.
+        """
+        if not sources_and_pages:
+            return []  # Early return if no sources or pages are provided
+
+        try:
+            # Build a list of tuples representing the source and page pairs
+            source_page_pairs = [(item['source'], item['page']) for item in sources_and_pages]
+
+            # Query all FilePageChunk objects that match any of the (source, page) pairs in the list
+            sql_stmt = select(FilePageChunk.id).where(
+                tuple_(FilePageChunk.source, FilePageChunk.page).in_(source_page_pairs)
+            )
+            chunk_ids = session.scalars(sql_stmt).all()
+            return chunk_ids
+
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for sources and pages: {e}")
             return []
         
         
