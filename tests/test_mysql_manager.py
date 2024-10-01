@@ -3,7 +3,7 @@ from sqlalchemy import delete, select
 from sqlalchemy_utils import database_exists, create_database, drop_database
 from datetime import datetime, timedelta
 import os
-from db_mysql.dao import Base, WebPage, WebPageChunk
+from db_mysql.dao import Base, WebPage, WebPageChunk, FilePage, FilePageChunk
 from db_mysql import MySQLManager
 import time
 
@@ -53,6 +53,8 @@ def session(mysql_manager):
     # Clear the tables before each test
     session.execute(delete(WebPage))
     session.execute(delete(WebPageChunk))
+    session.execute(delete(FilePage))
+    session.execute(delete(FilePageChunk))
     session.commit()  # Commit deletion
 
     yield session
@@ -182,9 +184,9 @@ def test_get_active_urls_no_refresh_needed(mysql_manager, session):
     # Check that the length of the set is 0
     assert len(active_urls) == len(web_pages_metadata), f"Expected 0 active URLs, but got {len(active_urls)}"
 
-def test_get_chunk_ids_by_single_source(mysql_manager, session):
+def test_get_web_page_chunk_ids_by_single_source(mysql_manager, session):
     """
-    Test get_chunk_ids_by_single_source method to ensure it correctly fetches chunk IDs 
+    Test get_web_page_chunk_ids_by_single_source method to ensure it correctly fetches chunk IDs 
     for the given source URL.
     """
     # Step 1: Insert a web page and its associated chunks into the database.
@@ -207,7 +209,7 @@ def test_get_chunk_ids_by_single_source(mysql_manager, session):
     mysql_manager.insert_web_page_chunks(session, chunk_info_list)
 
     # Step 2: Fetch chunk IDs by source URL
-    fetched_chunk_ids = mysql_manager.get_chunk_ids_by_single_source(session, source_url)
+    fetched_chunk_ids = mysql_manager.get_web_page_chunk_ids_by_single_source(session, source_url)
 
     # Step 3: Verify the fetched chunk IDs match the inserted chunk IDs
     assert isinstance(fetched_chunk_ids, list)  # Ensure the return type is a list
@@ -215,9 +217,9 @@ def test_get_chunk_ids_by_single_source(mysql_manager, session):
     assert set(fetched_chunk_ids) == set(chunk_ids)  # Ensure the IDs match
 
 
-def test_get_chunk_ids_by_sources(mysql_manager, session):
+def test_get_web_page_chunk_ids_by_sources(mysql_manager, session):
     """
-    Test get_chunk_ids_by_sources method to ensure it correctly fetches chunk IDs 
+    Test get_web_page_chunk_ids_by_sources method to ensure it correctly fetches chunk IDs 
     for the given list of source URLs.
     """
     # Step 1: Insert multiple web pages and their associated chunks into the database
@@ -246,7 +248,7 @@ def test_get_chunk_ids_by_sources(mysql_manager, session):
     mysql_manager.insert_web_page_chunks(session, chunk_info_list)
 
     # Step 2: Fetch chunk IDs by list of source URLs
-    fetched_chunk_ids = mysql_manager.get_chunk_ids_by_sources(session, sources)
+    fetched_chunk_ids = mysql_manager.get_web_page_chunk_ids_by_sources(session, sources)
 
     # Step 3: Verify the fetched chunk IDs match the inserted chunk IDs
     all_chunk_ids = chunk_ids_for_source1 + chunk_ids_for_source2 + chunk_ids_for_source3
@@ -394,7 +396,7 @@ def test_delete_web_pages_by_sources(mysql_manager, session):
     assert still_exists_page is not None
     assert still_exists_page.source == 'https://example-delete-11.com'
 
-def test_get_language_by_single_source(mysql_manager, session):
+def test_get_web_page_language_by_single_source(mysql_manager, session):
     """
     Test fetching the language of a single web page by its source URL.
     """
@@ -403,24 +405,24 @@ def test_get_language_by_single_source(mysql_manager, session):
     language = "zh"
     mysql_manager.insert_web_page(session, url, refresh_freq=23, language=language)
     
-    # Retrieve the language using the get_language_by_single_source method
-    retrieved_language = mysql_manager.get_language_by_single_source(session, url)
+    # Retrieve the language using the get_web_page_language_by_single_source method
+    retrieved_language = mysql_manager.get_web_page_language_by_single_source(session, url)
     
     # Assert that the returned language matches the expected value
     assert retrieved_language == language, f"Expected {language} but got {retrieved_language}"
 
-def test_get_language_by_single_source_nonexistent(mysql_manager, session):
+def test_get_web_page_language_by_single_source_nonexistent(mysql_manager, session):
     """
     Test fetching the language of a non-existent source URL.
     """
     # Attempt to get the language for a URL that does not exist
     nonexistent_url = "https://nonexistent.com"
-    retrieved_language = mysql_manager.get_language_by_single_source(session, nonexistent_url)
+    retrieved_language = mysql_manager.get_web_page_language_by_single_source(session, nonexistent_url)
     
     # Assert that the returned value is None
     assert retrieved_language is None, "Expected None for non-existent URL"
 
-def test_get_languages_by_sources(mysql_manager, session):
+def test_get_web_page_languages_by_sources(mysql_manager, session):
     """
     Test fetching the languages for multiple web pages by their source URLs and grouping them by 'en' and 'zh'.
     """
@@ -435,7 +437,7 @@ def test_get_languages_by_sources(mysql_manager, session):
     
     # Retrieve the languages using the get_languages_by_sources method
     sources = ["https://example-en-1.com", "https://example-zh-2.com", "https://example-en-3.com"]
-    retrieved_languages = mysql_manager.get_languages_by_sources(session, sources)
+    retrieved_languages = mysql_manager.get_web_page_languages_by_sources(session, sources)
     
     # Assert that the returned dictionary contains the correct grouping of sources by language
     expected_languages = {
@@ -444,7 +446,7 @@ def test_get_languages_by_sources(mysql_manager, session):
     }
     assert retrieved_languages == expected_languages, f"Expected {expected_languages} but got {retrieved_languages}"
 
-def test_get_languages_by_sources_partial_existence(mysql_manager, session):
+def test_get_web_page_languages_by_sources_partial_existence(mysql_manager, session):
     """
     Test fetching languages when some URLs exist and some don't, and grouping the existing ones by 'en' and 'zh'.
     """
@@ -458,7 +460,7 @@ def test_get_languages_by_sources_partial_existence(mysql_manager, session):
     
     # Retrieve the languages for both existing and non-existent URLs
     sources = ["https://example1.com", "https://example2.com", "https://nonexistent.com"]
-    retrieved_languages = mysql_manager.get_languages_by_sources(session, sources)
+    retrieved_languages = mysql_manager.get_web_page_languages_by_sources(session, sources)
     
     # Assert that only the existing URLs are returned and grouped correctly
     expected_languages = {
@@ -466,3 +468,145 @@ def test_get_languages_by_sources_partial_existence(mysql_manager, session):
         "zh": ["https://example2.com"],
     }
     assert retrieved_languages == expected_languages, f"Expected {expected_languages} but got {retrieved_languages}"
+
+def test_insert_file_pages(mysql_manager, session):
+    """
+    Test inserting multiple file pages into the database.
+    """
+    file_pages = [
+        {'source': 'example1.pdf', 'page': '1', 'language': 'en'},
+        {'source': 'example2.xlsx', 'page': 'Sheet1', 'language': 'zh'},
+        {'source': 'example1.pdf', 'page': '2', 'language': 'en'}
+    ]
+    
+    # Insert file pages
+    mysql_manager.insert_file_pages(session, file_pages)
+
+    # Verify that the file pages were inserted
+    sql_stmt = select(FilePage).filter(FilePage.source.in_([f['source'] for f in file_pages]))
+    inserted_file_pages = session.scalars(sql_stmt).all()
+    
+    assert len(inserted_file_pages) == len(file_pages)
+
+    # Create sets of tuples for comparison
+    expected_set = set((fp['source'], fp['page'], fp['language']) for fp in file_pages)
+    actual_set = set((fp.source, fp.page, fp.language) for fp in inserted_file_pages)
+
+    assert expected_set == actual_set, f"Mismatch in inserted data. Expected: {expected_set}, Got: {actual_set}"
+
+    # Optional: Check if 'date' was set for each inserted page
+    for page in inserted_file_pages:
+        assert page.date is not None, f"Date not set for page: {page}"
+
+
+def test_insert_file_page_chunks(mysql_manager, session):
+    """
+    Test inserting file page chunks in batch.
+    """
+    file_pages = [
+        {'source': 'example3.pdf', 'page': '1', 'language': 'en'},
+    ]
+    mysql_manager.insert_file_pages(session, file_pages)
+
+    sql_stmt = select(FilePage).filter_by(source=file_pages[0]['source'], page=file_pages[0]['page'])
+    file_page = session.scalars(sql_stmt).first()
+    
+    chunk_info_list = [
+        {'id': 'chunk1', 'source': file_page.source, 'page': file_page.page},
+        {'id': 'chunk2', 'source': file_page.source, 'page': file_page.page}
+    ]
+    mysql_manager.insert_file_page_chunks(session, chunk_info_list)
+
+    # Verify that the chunks were inserted
+    sql_stmt = select(FilePageChunk).filter_by(source=file_page.source, page=file_page.page)
+    inserted_chunks = session.scalars(sql_stmt).all()
+    
+    assert len(inserted_chunks) == len(chunk_info_list)
+
+
+def test_get_file_page_chunk_ids(mysql_manager, session):
+    """
+    Test fetching file page chunk IDs based on source and page.
+    """
+    file_pages = [
+        {'source': 'example4.pdf', 'page': '1', 'language': 'en'},
+        {'source': 'example4.pdf', 'page': '2', 'language': 'en'}
+    ]
+    mysql_manager.insert_file_pages(session, file_pages)
+
+    chunk_info_list = [
+        {'id': 'chunk1', 'source': 'example4.pdf', 'page': '1'},
+        {'id': 'chunk2', 'source': 'example4.pdf', 'page': '2'}
+    ]
+    mysql_manager.insert_file_page_chunks(session, chunk_info_list)
+
+    # Test fetching chunks based on source and page
+    sources_and_pages = [{'source': 'example4.pdf', 'page': '1'}, {'source': 'example4.pdf', 'page': '2'}]
+    chunk_ids = mysql_manager.get_file_page_chunk_ids(session, sources_and_pages)
+
+    assert set(chunk_ids) == {'chunk1', 'chunk2'}
+
+
+def test_delete_file_pages_by_sources_and_pages(mysql_manager, session):
+    """
+    Test deleting file pages by source and page.
+    """
+    file_pages = [
+        {'source': 'example5.pdf', 'page': '1', 'language': 'en'},
+        {'source': 'example5.pdf', 'page': '2', 'language': 'en'},
+        {'source': 'example6.pdf', 'page': '1', 'language': 'zh'}
+    ]
+    mysql_manager.insert_file_pages(session, file_pages)
+
+    # Verify the pages were inserted
+    sql_stmt = select(FilePage).filter(FilePage.source.in_(['example5.pdf', 'example6.pdf']))
+    inserted_pages = session.scalars(sql_stmt).all()
+    assert len(inserted_pages) == len(file_pages)
+
+    # Delete some file pages
+    sources_and_pages = [{'source': 'example5.pdf', 'page': '1'}, {'source': 'example6.pdf', 'page': '1'}]
+    mysql_manager.delete_file_pages_by_sources_and_pages(session, sources_and_pages)
+
+    # Verify that the pages were deleted
+    remaining_pages_sql_stmt = select(FilePage).filter(
+        FilePage.source == 'example5.pdf',
+        FilePage.page == '2'
+    )
+    remaining_page = session.scalars(remaining_pages_sql_stmt).first()
+    assert remaining_page is not None
+
+    deleted_pages_sql_stmt = select(FilePage).filter(
+        FilePage.source.in_(['example5.pdf', 'example6.pdf']),
+        FilePage.page.in_(['1'])
+    )
+    deleted_pages = session.scalars(deleted_pages_sql_stmt).all()
+    assert len(deleted_pages) == 0
+
+
+def test_delete_file_page_chunks_by_ids(mysql_manager, session):
+    """
+    Test deleting file page chunks by chunk IDs.
+    """
+    file_pages = [
+        {'source': 'example7.pdf', 'page': '1', 'language': 'en'},
+    ]
+    mysql_manager.insert_file_pages(session, file_pages)
+
+    chunk_info_list = [
+        {'id': 'chunk1', 'source': 'example7.pdf', 'page': '1'},
+        {'id': 'chunk2', 'source': 'example7.pdf', 'page': '1'}
+    ]
+    mysql_manager.insert_file_page_chunks(session, chunk_info_list)
+
+    # Verify that the chunks were inserted
+    sql_stmt = select(FilePageChunk).filter_by(source='example7.pdf', page='1')
+    inserted_chunks = session.scalars(sql_stmt).all()
+    assert len(inserted_chunks) == len(chunk_info_list)
+
+    # Delete the chunks by their IDs
+    chunk_ids = ['chunk1', 'chunk2']
+    mysql_manager.delete_file_page_chunks_by_ids(session, chunk_ids)
+
+    # Verify that the chunks were deleted
+    remaining_chunks = session.scalars(sql_stmt).all()
+    assert len(remaining_chunks) == 0

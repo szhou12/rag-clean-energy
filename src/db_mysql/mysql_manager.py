@@ -21,7 +21,7 @@ class MySQLManager:
         try:
             if not database_exists(self.db_uri):
                 create_database(self.db_uri)
-            self.engine = create_engine(self.db_uri)  # engine = DB connector
+            self.engine = create_engine(self.db_uri, echo=True)  # engine = DB connector
             self.Session = sessionmaker(bind=self.engine)
             Base.metadata.create_all(self.engine) # Create tables if they do not exist
         except SQLAlchemyError as e:

@@ -16,8 +16,8 @@ Base = declarative_base()
 # 2. WebPageChunk uses ForeignKey to indicate that it is associated with a single WebPage.
 class WebPage(Base):
     __tablename__ = 'web_page'
-    id = Column(Integer, primary_key=True)
-    source = Column(String(255), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String(255), nullable=False, unique=True, index=True) # NOTE: unique=True to be referenced as FK. index=True for faster search
     checksum = Column(String(64), unique=True, nullable=False) # SHA-256 checksum
     date = Column(DateTime, nullable=False)
     refresh_frequency = Column(Integer, nullable=True)  # Refresh frequency in days
@@ -87,9 +87,9 @@ class WebPageChunk(Base):
     
 class FilePage(Base):
     __tablename__ = 'file_page'
-    id = Column(Integer, primary_key=True)
-    source = Column(String(255), nullable=False, index=True) # Source file name
-    page = Column(String(255), nullable=False) # PDF page number or Excel sheet name
+    id = Column(Integer, autoincrement=True)
+    source = Column(String(255), primary_key=True, nullable=False) # Source file name
+    page = Column(String(255), primary_key=True, nullable=False) # PDF page number or Excel sheet name
     date = Column(DateTime, nullable=False, default=datetime.now) # The date when the file page was parsed
     language = Column(String(10), nullable=False, default='en') # Language of the content
 
@@ -134,6 +134,7 @@ class FilePage(Base):
 class FilePageChunk(Base):
     __tablename__ = 'file_page_chunk'
 
+    # Chunk id = UUID4
     id = Column(String(36), primary_key=True)
     
     # Composite foreign key referencing both source and page from FilePage
