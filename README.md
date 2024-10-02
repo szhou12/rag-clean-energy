@@ -154,6 +154,7 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 - [Simplifying PDF using GPT-4, PyMuPDF and Streamlit](https://medium.com/@contact.blessin/simplifying-pdf-using-gpt-4-pymupdf-and-streamlit-e1e4e5de9399)
     - gives instruction on loading pdf files by PyMuPDF without saving pdf files to local first. It uses string concatenation on streams.It may not be efficient.
 - [Understanding LangChain's RecursiveCharacterTextSplitter](https://dev.to/eteimz/understanding-langchains-recursivecharactertextsplitter-2846)
+- [How to do retrieval with contextual compression](https://python.langchain.com/docs/how_to/contextual_compression/)
 
 
 #### Langchain Retriever

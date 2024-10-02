@@ -120,19 +120,22 @@ class RAGAgent:
         for item in metadata:
             item["language"] = language
             item["page"] = str(item["page"])
+        ## metadata = {"source": str, "page": str, "language": str}
 
         # Step 2: Clean content before splitting
         self.text_processor.clean_page_content(docs)
-        # TODO: if Excel, replace .page_content with .metadata['text_as_html]
+        # TODO: if Excel: 1. replace .page_content with .metadata['text_as_html]. 2. add .metadata['page']=str(sheet_name)
 
         # Step 3: Split content into manageable chunks
         new_file_pages_chunks = self.text_processor.split_text(docs)
 
         # Step 4: Embed each chunk (Document) and save to the vector store
-        chunk_ids = self.vector_store.add_documents(new_file_pages_chunks)
+        try:
+            chunk_metadata_list = self.insert_file_data(docs_metadata=metadata, chunks=new_file_pages_chunks, language=language)
+            print(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
+        except RuntimeError as e:
+            print(f"Failed to insert data into Chroma and MySQL due to an error: {e}")
         
-        # Step 4: Save embeddings and chunks to the vector store
-        # self.vector_store.save(embeddings, chunks)
         
     def process_url(self, url: str, max_pages: int = 1, autodownload: bool = False, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
         """
@@ -424,7 +427,7 @@ class RAGAgent:
         Wrapper function to handle atomic insertion of uploaded file content into Chroma (for embeddings) and MySQL (for metadata).
         Implements the manual two-phase commit (2PC) pattern.
         
-        :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL.
+        :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL. {"source": filename, "page": page num/sheet name, "language": en/zh}
         :param chunks: List[Document] - Chunks of document text to be inserted into Chroma.
         :param language: The language of the inserted data content. Only "en" (English) or "zh" (Chinese) are accepted.
         :raises: Exception if any part of the insertion process fails.
@@ -433,6 +436,7 @@ class RAGAgent:
         session = self.mysql_manager.create_session()
         try:
             # Step 1: Insert embeddings into Chroma (vector store)
+            ## chunks_metadata := [{'id': uuid4, 'source': filename, 'page': page num/sheet name}]
             chunks_metadata = self.vector_stores[language].add_documents(documents=chunks, secondary_key='page')
 
             # Step 2: Insert metadata into MySQL
@@ -549,20 +553,70 @@ class RAGAgent:
         # Process deletion for Chinese sources
         if sources_by_language['zh']:
             self.delete_web_content_and_metadata(sources_by_language['zh'], language="zh")
-    
-    def delete_web_content_and_metadata(self, sources: list[str], language: Literal["en", "zh"]):
+
+    def delete_file_content_and_metadata(self, sources_and_pages: list[dict[str, str]], language: Literal["en", "zh"]):
         """
-        Delete content data from Chroma and metadata from MySQL for a list of sources.
+        Delete content data from Chroma and metadata from MySQL for a list of uploaded files.
         Implements atomic behavior using manual two-phase commit (2PC) pattern.
         
-        :param sources: List of sources (e.g. URLs) of the web pages to be deleted.
+        :param sources_and_pages: List of sources and pages (e.g. URLs) of the uploaded file pages to be deleted. [{'source': str, 'page': str}]
+        :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
         :return: None
         :raises: RuntimeError if any part of the deletion process fails.
         """
         session = self.mysql_manager.create_session()
         try:
             # Step 1: Get
-            # 1-1: MySQL: Get all chunk ids for the given sources using get_chunk_ids_by_sources
+            # 1-1: MySQL: Get all chunk ids for the given sources and pages
+            old_chunk_ids = self.mysql_manager.get_file_page_chunk_ids(session, sources_and_pages)
+            # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
+            old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
+
+            # Step 2: Delete
+            # 2-1: MySQL: Delete FilePageChunk by old chunk ids
+            self.mysql_manager.delete_file_page_chunks_by_ids(session, old_chunk_ids)
+            # 2-2: MySQL: Delete FilePage by sources and pages
+            self.mysql_manager.delete_file_pages_by_sources_and_pages(session, sources_and_pages)
+            # 2-3: Chroma: Delete chunks by old chunk ids
+            self.vector_stores[language].delete(ids=old_chunk_ids)
+
+            # Step 3: Commit MySQL transaction
+            session.commit()
+
+            print(f"Successfully deleted data for sources: {sources_and_pages}")
+        
+        except Exception as e:
+            # Rollback MySQL transaction if any error occurs
+            session.rollback()
+            print(f"Error deleting data for sources {sources_and_pages}: {e}")
+            
+            # Rollback Chroma changes if MySQL fails
+            try:
+                # Restore old chunks to Chroma if they were deleted
+                if old_documents:
+                    self.vector_stores[language].add_documents(documents=old_documents, ids=old_chunk_ids, secondary_key='page')
+            except Exception as chroma_rollback_error:
+                print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
+
+            # Raise the error to indicate failure
+            raise RuntimeError(f"Data deletion failed for sources {sources_and_pages}: {e}")
+        finally:
+            self.mysql_manager.close_session(session)
+    
+    def delete_web_content_and_metadata(self, sources: list[str], language: Literal["en", "zh"]):
+        """
+        Delete content data from Chroma and metadata from MySQL for a list of web sources.
+        Implements atomic behavior using manual two-phase commit (2PC) pattern.
+        
+        :param sources: List of sources (e.g. URLs) of the web pages to be deleted.
+        :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
+        :return: None
+        :raises: RuntimeError if any part of the deletion process fails.
+        """
+        session = self.mysql_manager.create_session()
+        try:
+            # Step 1: Get
+            # 1-1: MySQL: Get all chunk ids for the given sources
             old_chunk_ids = self.mysql_manager.get_web_page_chunk_ids_by_sources(session, sources)
             # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
             old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)

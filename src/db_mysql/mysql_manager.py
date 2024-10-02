@@ -136,6 +136,22 @@ class MySQLManager:
         except SQLAlchemyError as e:
             session.rollback()  # Rollback transaction in case of error
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPage: {e}")
+        
+    def insert_web_page_chunks(self, session, chunk_info_list):
+        """
+        Insert chunks associated with a web page in batch.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param chunk_info_list: List[dict] [{'id': uuid4, 'source': url}]
+        """
+        try:            
+            # Perform bulk insert using ORM's insert statement and Session.execute()
+            sql_stmt = insert(WebPageChunk)  # ORM insert statement
+            session.execute(sql_stmt, chunk_info_list)
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
+        
 
     def insert_file_pages(self, session, document_info_list):
         """
@@ -158,21 +174,6 @@ class MySQLManager:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePage: {e}")
 
-
-    def insert_web_page_chunks(self, session, chunk_info_list):
-        """
-        Insert chunks associated with a web page in batch.
-
-        :param session: SQLAlchemy session to interact with the database.
-        :param chunk_info_list: List[dict] [{'id': uuid4, 'source': source}]
-        """
-        try:            
-            # Perform bulk insert using ORM's insert statement and Session.execute()
-            sql_stmt = insert(WebPageChunk)  # ORM insert statement
-            session.execute(sql_stmt, chunk_info_list)
-        except SQLAlchemyError as e:
-            session.rollback()
-            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
         
     def insert_file_page_chunks(self, session, chunk_info_list):
         """
@@ -267,7 +268,28 @@ class MySQLManager:
         except SQLAlchemyError as e:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting WebPages: {e}")
-        
+
+    def delete_web_page_chunks_by_ids(self, session, chunk_ids):
+        """
+        Delete web page chunks that match the given list of chunk IDs.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param chunk_ids: List of chunk IDs (UUID4) to delete.
+        :return: None
+        """
+        if not chunk_ids:
+            print("No chunk IDs provided for deletion.")
+            return
+
+        try:
+            # Create a delete statement with a filter for the chunk IDs
+            sql_stmt = delete(WebPageChunk).where(WebPageChunk.id.in_(chunk_ids))
+            session.execute(sql_stmt)
+
+        except SQLAlchemyError as e:
+            session.rollback()  # Rollback in case of error
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
+
     def delete_file_pages_by_sources_and_pages(self, session, sources_and_pages: list[dict[str, str]]):
         """
         Delete file pages that match the given list of (source, page) pairs.
@@ -296,28 +318,7 @@ class MySQLManager:
         except SQLAlchemyError as e:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting FilePages: {e}")
-
-    def delete_web_page_chunks_by_ids(self, session, chunk_ids):
-        """
-        Delete web page chunks that match the given list of chunk IDs.
-
-        :param session: SQLAlchemy session to interact with the database.
-        :param chunk_ids: List of chunk IDs (UUID4) to delete.
-        :return: None
-        """
-        if not chunk_ids:
-            print("No chunk IDs provided for deletion.")
-            return
-
-        try:
-            # Create a delete statement with a filter for the chunk IDs
-            sql_stmt = delete(WebPageChunk).where(WebPageChunk.id.in_(chunk_ids))
-            session.execute(sql_stmt)
-
-        except SQLAlchemyError as e:
-            session.rollback()  # Rollback in case of error
-            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
-
+        
     def delete_file_page_chunks_by_ids(self, session, chunk_ids):
         """
         Delete file page chunks that match the given list of chunk IDs.
