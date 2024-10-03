@@ -49,6 +49,8 @@ class ExcelParser(BaseParser):
             docs.extend(loader.load())
 
             metadata.append({"source": self.file.name, "page": sheet_name})
+
+            self.delete_markdown_sheet(sheet_name)
         
         return docs, metadata
     
@@ -68,3 +70,20 @@ class ExcelParser(BaseParser):
         df[non_numeric_columns] = df[non_numeric_columns].fillna('')
 
         return df
+    
+    def delete_markdown_sheet(self, sheet_name):
+        """
+        Delete the corresponding markdown file for the given sheet.
+        
+        :param sheet_name: The name of the sheet whose markdown file is to be deleted.
+        :return: True if the file was deleted successfully, False if the file was not found.
+        """
+        md_file_path = os.path.join(self.dir, f"{self.file_basename}_{sheet_name}.md")
+        
+        if os.path.exists(md_file_path):
+            os.remove(md_file_path)
+            print(f'Deleted markdown file for sheet <{sheet_name}>')
+            return True
+        else:
+            print(f'Markdown file for sheet <{sheet_name}> not found')
+            return False

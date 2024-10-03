@@ -104,27 +104,19 @@ class RAGAgent:
             ),
         }
 
-    def process_file(self, file, language: Literal["en", "zh"] = "en"):
+    def process_file(self, filepath: str, language: Literal["en", "zh"] = "en"):
         """
-        TODO: to be completed
         Process an uploaded file: parse file content, embed, and save to vector store.
         
-        :param file: The uploaded file. Currently support: PDF (multiple pages), Excel (multiple sheets)
+        :param filepath: (str) The file path. Currently support: PDF (multiple pages), Excel (multiple sheets)
         :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
         :return: None
         """
-        # Step 1: Select file parser based on the file extension, load and parse the file
-        parser = self._select_parser(file)
-        docs, metadata = parser.load_and_parse()
-        # augment metadata with language
-        for item in metadata:
-            item["language"] = language
-            item["page"] = str(item["page"])
-        ## metadata = {"source": str, "page": str, "language": str}
+        # Step 1: Select file parser based on the file extension, load and parse the file, augment metadata
+        docs, metadata = self._parse_file(filepath, language)
 
         # Step 2: Clean content before splitting
         self.text_processor.clean_page_content(docs)
-        # TODO: if Excel: 1. replace .page_content with .metadata['text_as_html]. 2. add .metadata['page']=str(sheet_name)
 
         # Step 3: Split content into manageable chunks
         new_file_pages_chunks = self.text_processor.split_text(docs)
@@ -207,36 +199,60 @@ class RAGAgent:
 
         # Reset self.scraped_urls in WebScraper instance
         self.scraper.fetch_active_urls_from_db()
+
+    def _parse_file(self, filepath: str, language: Literal["en", "zh"] = "en"):
+        """
+        Process an uploaded file: parse file content, embed, and save to vector store.
         
-
-    def _select_parser(self, file):
+        :param filepath: (str) The file path. Currently supports: PDF (multiple pages), Excel (multiple sheets)
+        :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
+        :return: None
         """
-        Determine the type of file and return the appropriate parser.
-        Reuse the parser instance if it already exists.
-        Return corresponding Parser object based on the file extension.
-        """
-        file_ext = os.path.splitext(file.name)[1].lower()
-
-        if file_ext == '.pdf':
-            self._file_parsers[file_ext] = PDFParser(file)
-        elif file_ext in ['.xls', '.xlsx']:
-            self._file_parsers[file_ext] = ExcelParser(file)
+        # Step 1: Determine the mode based on the file extension directly
+        if filepath.endswith(('.pdf', '.xls', '.xlsx')):  # Binary files
+            mode = 'rb'
+        elif filepath.endswith(('.txt', '.md', '.csv')):  # Text files
+            mode = 'r'
         else:
-            raise ValueError(f"Unsupported file type: {file_ext}")
+            raise ValueError(f"Unsupported file type: {filepath}")
 
-        # if file_ext not in self._file_parsers:
-        #     # Instantiate a new parser object if it doesn't exist in the dictionary
-        #     if file_ext == '.pdf':
-        #         self._file_parsers[file_ext] = PDFParser(file)
-        #     elif file_ext in ['.xls', '.xlsx']:
-        #         self._file_parsers[file_ext] = ExcelParser(file)
-        #     else:
-        #         raise ValueError(f"Unsupported file type: {file_ext}")
-        # else:
-        #     # Update the existing parser with the new file
-        #     self._file_parsers[file_ext].file = file
+        # Step 2: Open the file and create a file-like object
+        file = open(filepath, mode)
 
-        return self._file_parsers[file_ext]
+        try:
+            # Step 3: Extract file extension and select the appropriate parser
+            file_ext = os.path.splitext(file.name)[1].lower()
+
+            if file_ext == '.pdf':
+                parser = PDFParser(file)
+            elif file_ext in ['.xls', '.xlsx']:
+                parser = ExcelParser(file)
+            else:
+                raise ValueError(f"Unsupported file type: {file_ext}")
+            
+            # Step 4: Load and parse the file
+            docs, metadata = parser.load_and_parse()
+
+            # Step 5: Augment metadata with language and ensure 'page' is a string
+            for item in metadata:
+                item["language"] = language
+                item["page"] = str(item["page"])  # Convert page number to string
+            
+            # Step 6: Additional processing for Excel files
+            if file_ext in ['.xls', '.xlsx']:
+                for doc, meta in zip(docs, metadata):
+                    # Replace doc.page_content with doc.metadata['text_as_html']
+                    if 'text_as_html' in doc.metadata:
+                        doc.page_content = doc.metadata['text_as_html']
+                    # Add doc.metadata['page'] = metadata['page']
+                    doc.metadata['page'] = meta['page']
+            
+            return docs, metadata
+        
+        finally:
+            file.close()
+        
+    
     
     def _init_embedder(self, embedder_type):
         """

@@ -8,12 +8,12 @@ class BaseParser(ABC):
         """
         Initialize the BaseParser object.
 
-        :param file: The uploaded / auto-downloaded file object.
+        :param file: file-like object.
         :param dir: The directory to save the file. Default is 'temp'.
         """
         self.file = file
         self.file_basename, self.file_ext = os.path.splitext(self.file.name)
-        # TODO: AFTER setup databse, use env variable to store the directory path. necessary or not???
+        # TODO: AFTER cloud deploy, save to Object Storage
         self.dir = dir or os.path.join(os.getcwd(), 'temp')
     
     @abstractmethod
