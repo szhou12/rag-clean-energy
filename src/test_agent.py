@@ -114,7 +114,11 @@ if user_query:
 
 # Sidebar for scraping URL functionality
 with st.sidebar:
-    st.header("Scrape URL")
+    uploaded_file = st.file_uploader("Choose a file", type=["pdf", "xlsx", "xls"])
+    if uploaded_file is not None:
+        pass
+
+
     url = st.text_input("Website URL")
     max_pages = st.number_input("Maximum number of pages to scrape:", min_value=1, value=1)
     autodownload = st.checkbox("Enable autodownload of attached files", value=False)

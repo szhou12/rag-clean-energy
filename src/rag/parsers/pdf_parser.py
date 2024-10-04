@@ -14,26 +14,23 @@ class PDFParser(BaseParser):
         # Create the directory if it does not exist yet
         if not os.path.exists(self.dir):
             os.makedirs(self.dir, exist_ok=True)
-
-        file_path = os.path.join(self.dir, self.file.name)
         
-        if not os.path.exists(file_path):
-            print(f'Saving {self.file_ext} file to directory: {self.dir}')
-            with open(file_path, mode='wb') as w:
+        if not os.path.exists(self.filepath):
+            print(f'Saving {self.file.name} to directory: {self.dir}')
+            with open(self.filepath, mode='wb') as w:
                 w.write(self.file.getvalue())
         
-        return file_path
+        return self.filepath
 
 
     def load_and_parse(self):
         """
-        Load and parse the PDF file.
+        Load and parse the PDF file from a file path.
         Note: 1 document = 1 page. e.g. if a file has 36 pages, then return a list of 36 documents
 
         :return: Tuple[List[Document], List[Dict]] - A list of Langchain Document objects and their corresponding metadata.
         """
-        file_path = self.save_file() # TODO: should take out this and directly reads from cloud storage after deployment
-        loader = PyMuPDFLoader(file_path)
+        loader = PyMuPDFLoader(self.filepath)
         docs = loader.load()
 
         metadata = [{"source": self.file.name, "page": doc.metadata.get('page', None)} for doc in docs]

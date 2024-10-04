@@ -1,6 +1,7 @@
 # src/rag/agent.py
 import os
-from typing import Optional, Literal
+from typing import Optional, Literal, List, Tuple
+from langchain.schema import Document
 from langchain.chains.history_aware_retriever import create_history_aware_retriever
 from langchain.chains.retrieval import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -41,7 +42,7 @@ class RAGAgent:
 
         self.scraper = WebScraper(mysql_manager=self.mysql_manager)
         
-        self._file_parsers = {}  # {'.pdf': PDFParser(), '.xls': ExcelParser(), '.xlsx': ExcelParser(), ...}
+        # self._file_parsers = {}  # {'.pdf': PDFParser(), '.xls': ExcelParser(), '.xlsx': ExcelParser(), ...}
 
         self.text_processor = TextProcessor()
 
@@ -112,21 +113,28 @@ class RAGAgent:
         :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
         :return: None
         """
-        # Step 1: Select file parser based on the file extension, load and parse the file, augment metadata
-        docs, metadata = self._parse_file(filepath, language)
-
-        # Step 2: Clean content before splitting
-        self.text_processor.clean_page_content(docs)
-
-        # Step 3: Split content into manageable chunks
-        new_file_pages_chunks = self.text_processor.split_text(docs)
-
-        # Step 4: Embed each chunk (Document) and save to the vector store
         try:
+            # Step 1: Parse the file based on the file extension
+            docs, metadata = self._parse_file(filepath, language)
+
+            # Step 2: Clean content before splitting
+            self.text_processor.clean_page_content(docs)
+
+            # Step 3: Split content into manageable chunks
+            new_file_pages_chunks = self.text_processor.split_text(docs)
+
+            # Step 4: Embed each chunk (Document) and save to the vector store
             chunk_metadata_list = self.insert_file_data(docs_metadata=metadata, chunks=new_file_pages_chunks, language=language)
             print(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
+
+        except FileNotFoundError as e:
+            print(f"File not found: {filepath}")
+        except ValueError as e:
+            print(f"Invalid file or language: {e}")
         except RuntimeError as e:
-            print(f"Failed to insert data into Chroma and MySQL due to an error: {e}")
+            print(f"Runtime error occurred: {e}")
+        except Exception as e:
+            print(f"Unexpected error occurred: {e}")
         
         
     def process_url(self, url: str, max_pages: int = 1, autodownload: bool = False, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
@@ -152,8 +160,8 @@ class RAGAgent:
             return 0, 0
 
         # Step 3: Extract metadata for the new documents
-        # new_web_pages_metadata := [{'source': source, 'refresh_frequency': freq, 'language': lang}, ...]
-        new_web_pages_metadata = self.extract_web_metadata(new_web_pages, refresh_frequency, language)
+        # new_web_pages_metadata := [{'source': source, 'refresh_frequency': freq, 'language': lang}]
+        new_web_pages_metadata = self.extract_metadata(new_web_pages, refresh_frequency, language)
 
         # Step 4: Clean content before splitting
         self.text_processor.clean_page_content(new_web_pages)
@@ -200,57 +208,51 @@ class RAGAgent:
         # Reset self.scraped_urls in WebScraper instance
         self.scraper.fetch_active_urls_from_db()
 
-    def _parse_file(self, filepath: str, language: Literal["en", "zh"] = "en"):
+    def _parse_file(self, filepath: str, language: Literal["en", "zh"] = "en") -> Tuple[List[Document], dict]:
         """
         Process an uploaded file: parse file content, embed, and save to vector store.
         
         :param filepath: (str) The file path. Currently supports: PDF (multiple pages), Excel (multiple sheets)
         :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
-        :return: None
+        :return: A tuple containing a list of Langchain Document objects and metadata.
         """
-        # Step 1: Determine the mode based on the file extension directly
-        if filepath.endswith(('.pdf', '.xls', '.xlsx')):  # Binary files
-            mode = 'rb'
-        elif filepath.endswith(('.txt', '.md', '.csv')):  # Text files
-            mode = 'r'
-        else:
-            raise ValueError(f"Unsupported file type: {filepath}")
-
-        # Step 2: Open the file and create a file-like object
-        file = open(filepath, mode)
-
-        try:
-            # Step 3: Extract file extension and select the appropriate parser
-            file_ext = os.path.splitext(file.name)[1].lower()
-
-            if file_ext == '.pdf':
-                parser = PDFParser(file)
-            elif file_ext in ['.xls', '.xlsx']:
-                parser = ExcelParser(file)
-            else:
-                raise ValueError(f"Unsupported file type: {file_ext}")
-            
-            # Step 4: Load and parse the file
-            docs, metadata = parser.load_and_parse()
-
-            # Step 5: Augment metadata with language and ensure 'page' is a string
-            for item in metadata:
-                item["language"] = language
-                item["page"] = str(item["page"])  # Convert page number to string
-            
-            # Step 6: Additional processing for Excel files
-            if file_ext in ['.xls', '.xlsx']:
-                for doc, meta in zip(docs, metadata):
-                    # Replace doc.page_content with doc.metadata['text_as_html']
-                    if 'text_as_html' in doc.metadata:
-                        doc.page_content = doc.metadata['text_as_html']
-                    # Add doc.metadata['page'] = metadata['page']
-                    doc.metadata['page'] = meta['page']
-            
-            return docs, metadata
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"The file {filepath} does not exist.")
         
-        finally:
-            file.close()
+        file_ext = os.path.splitext(filepath)[1].lower()
+
+        # Select the appropriate parser based on file extension
+        if file_ext == '.pdf':
+            parser_class = PDFParser
+        elif file_ext in ['.xls', '.xlsx']:
+            parser_class = ExcelParser
+        else:
+            raise ValueError(f"Unsupported file type: {file_ext}")
+        
+        with parser_class(filepath) as parser:
+            try:
+                docs, metadata = parser.load_and_parse()
+
+                # Further processing of docs and metadata
+                # Step 1: Augment metadata with language and ensure 'page' is a string
+                for item in metadata:
+                    item["language"] = language
+                    item["page"] = str(item["page"])  # Convert page number to string
+                
+                # Step 2: Additional processing for Excel files
+                if file_ext in ['.xls', '.xlsx']:
+                    for doc, meta in zip(docs, metadata):
+                        # Replace doc.page_content with doc.metadata['text_as_html']
+                        if 'text_as_html' in doc.metadata:
+                            doc.page_content = doc.metadata['text_as_html']
+                        # Add doc.metadata['page'] = metadata['page']
+                        doc.metadata['page'] = meta['page']
+                
+                return docs, metadata
+            
+            except Exception as e:
+                raise RuntimeError(f"Error parsing file {filepath}: {e}")
+
         
     
     
@@ -280,7 +282,7 @@ class RAGAgent:
             raise ValueError(f"Unsupported embedder type: {embedder_type}")
         
 
-    def _categorize_web_documents(self, docs):
+    def _categorize_web_documents(self, docs: List[Document]):
         """
         Categorize documents (scraped web page) into new, expired, and up-to-date based on their status in the MySQL database.
         
@@ -313,15 +315,15 @@ class RAGAgent:
 
         return new_docs, expired_docs, up_to_date_docs
     
-    def extract_metadata(self, docs, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en", extra_metadata: Optional[dict] = None):
+    def extract_metadata(self, docs: List[Document], refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en", extra_metadata: Optional[dict] = None):
         """
         Extract metadata from the web page documents and optionally augment it with additional metadata.
 
         :param docs: List[Document]
         :param refresh_frequency: The re-scraping frequency in days for web contents. Keep None for uploaded files.
         :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese).
-        :param extra_metadata: Optional dictionary to augment each atom with additional metadata.
-        :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency, 'language': language, ...}]
+        :param extra_metadata: Optional dictionary to augment each dict with additional metadata.
+        :return: List[dict] - [{'source': src, 'refresh_frequency': refresh_freq, 'language': lang}]
         """
         document_info_list = []
         
@@ -345,30 +347,30 @@ class RAGAgent:
 
         return document_info_list
     
-    def extract_web_metadata(self, docs, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
-        """
-        Extract metadata from the web page documents.
+    # def extract_web_metadata(self, docs, refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en"):
+    #     """
+    #     Extract metadata from the web page documents.
 
-        :param docs: List[Document]
-        :param refresh_frequency: The re-scraping frequency in days for web contents. Keep None for uploaded files.
-        :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese)
-        :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency, 'language': language}]
-        """
-        document_info_list = []
-        for doc in docs:
-            source = doc.metadata.get('source', None)
-            if source:
-                atom = {
-                    'source': source, 
-                    'refresh_frequency': refresh_frequency, 
-                    'language': language
-                }
+    #     :param docs: List[Document]
+    #     :param refresh_frequency: The re-scraping frequency in days for web contents. Keep None for uploaded files.
+    #     :param language: The language of the web page/uploaded file content, either "en" (English) or "zh" (Chinese)
+    #     :return: List[dict] - [{'source': source, 'refresh_frequency': refresh_frequency, 'language': language}]
+    #     """
+    #     document_info_list = []
+    #     for doc in docs:
+    #         source = doc.metadata.get('source', None)
+    #         if source:
+    #             atom = {
+    #                 'source': source, 
+    #                 'refresh_frequency': refresh_frequency, 
+    #                 'language': language
+    #             }
                 
-                document_info_list.append(atom)
-            else:
-                print(f"Source not found in metadata: {doc.metadata}")
+    #             document_info_list.append(atom)
+    #         else:
+    #             print(f"Source not found in metadata: {doc.metadata}")
 
-        return document_info_list
+    #     return document_info_list
     
     # def extract_file_metadata(self, docs, docs_metadata, language: Literal["en", "zh"] = "en"):
     #     """
@@ -394,7 +396,7 @@ class RAGAgent:
     #     return document_info_list
     
 
-    def insert_web_data(self, docs_metadata, chunks, language: Literal["en", "zh"]):
+    def insert_web_data(self, docs_metadata: List[dict], chunks: List[Document], language: Literal["en", "zh"]):
         """
         Wrapper function to handle atomic insertion of scraped web content into Chroma (for embeddings) and MySQL (for metadata).
         Implements the manual two-phase commit (2PC) pattern.
@@ -438,7 +440,7 @@ class RAGAgent:
         finally:
             self.mysql_manager.close_session(session)
 
-    def insert_file_data(self, docs_metadata, chunks, language: Literal["en", "zh"]):
+    def insert_file_data(self, docs_metadata: List[dict], chunks: List[Document], language: Literal["en", "zh"]):
         """
         Wrapper function to handle atomic insertion of uploaded file content into Chroma (for embeddings) and MySQL (for metadata).
         Implements the manual two-phase commit (2PC) pattern.
@@ -483,7 +485,7 @@ class RAGAgent:
         finally:
             self.mysql_manager.close_session(session)
         
-    def update_web_data(self, source, chunks):
+    def update_web_data(self, source: str, chunks: List[Document]):
         """
         Update data for a SINGLE source URL and its chunks.
         Implements atomic behavior using manual two-phase commit (2PC) pattern.
