@@ -1,7 +1,8 @@
 # project/src/rag/vector_stores/chroma.py
 import os
 from uuid import uuid4
-from typing import Optional
+from typing import Optional, List
+from langchain.schema import Document
 from langchain_chroma import Chroma
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from .base_vectore_store import VectorStore
@@ -37,7 +38,7 @@ class ChromaVectorStore(VectorStore):
         """
         return self.vector_store.as_retriever(**kwargs)
 
-    def add_documents(self, documents, ids: Optional[list[str]] = None, secondary_key: Optional[str] = None):
+    def add_documents(self, documents: List[Document], ids: Optional[list[str]] = None, secondary_key: Optional[str] = None):
         """
         Add documents to the vector store.
         Note: if the input documents contains ids and also give .add_documents() ids in the kwargs (ids=uuids), then ids=uuids will take precedence.
@@ -68,7 +69,7 @@ class ChromaVectorStore(VectorStore):
                 # Augment chunk metadata with secondary key if provided
                 if secondary_key is not None:
                     secondary_value = doc.metadata.get(secondary_key, None)
-                    if not secondary_value:
+                    if secondary_value is None or secondary_value == "":
                         raise ValueError(f"Missing '{secondary_key}' (None or empty str) in document metadata for document {doc.metadata}")
                     atom[secondary_key] = str(secondary_value)
 

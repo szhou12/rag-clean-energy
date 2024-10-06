@@ -114,11 +114,19 @@ if user_query:
 
 # Sidebar for scraping URL functionality
 with st.sidebar:
+
+    ## File Upload
     uploaded_file = st.file_uploader("Choose a file", type=["pdf", "xlsx", "xls"])
     if uploaded_file is not None:
-        pass
+        temp_dir = os.path.join(os.path.dirname(__file__), '..', 'temp')
+        file_path = os.path.join(temp_dir, uploaded_file.name)
+        if not os.path.exists(file_path):
+            print('Saving file to temp directory')
+            with open(os.path.join(temp_dir, uploaded_file.name), mode='wb') as w:
+                w.write(uploaded_file.getvalue())
+        rag_agent.process_file(file_path)
 
-
+    ## URL Scraping
     url = st.text_input("Website URL")
     max_pages = st.number_input("Maximum number of pages to scrape:", min_value=1, value=1)
     autodownload = st.checkbox("Enable autodownload of attached files", value=False)
