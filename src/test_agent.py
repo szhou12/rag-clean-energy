@@ -18,7 +18,6 @@ mysql_config = {
     }
     
 # Initialize RAGAgent (ensure to pass necessary MySQL config)
-# TODO: testing persisting Chroma
 rag_agent = RAGAgent(mysql_config=mysql_config, vector_db="db_chroma")
 
 

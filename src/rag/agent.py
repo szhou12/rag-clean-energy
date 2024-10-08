@@ -581,6 +581,25 @@ class RAGAgent:
             self.mysql_manager.close_session(session)
 
 
+    def get_file_metadata(self, sources_and_pages: Optional[list[dict]] = None):
+        """
+        Get FilePage content (metadata) for uploaded files by their sources and pages.
+        
+        :param sources_and_pages: Optional list of sources and pages of the uploaded file pages to be fetched. [{'source': str, 'page': str}]. If None, return all.
+        :return: List[dict] - Metadata of the uploaded file pages stored in FilePage table.
+        """
+        session = self.mysql_manager.create_session()
+        try:
+            # Get metadata for uploaded files by sources and pages if provided; otherwise, return all
+            file_metadata = self.mysql_manager.get_file_pages(session, sources_and_pages)
+            return file_metadata
+        except Exception as e:
+            print(f"Error getting file metadata: {e}")
+            return []
+        finally:
+            self.mysql_manager.close_session(session)
+
+
     def delete_web_data_by_sources(self, sources: list[str]):
         """
         Delete data for multiple sources by their language.
@@ -604,7 +623,7 @@ class RAGAgent:
         Delete content data from Chroma and metadata from MySQL for a list of uploaded files.
         Implements atomic behavior using manual two-phase commit (2PC) pattern.
         
-        :param sources_and_pages: List of sources and pages (e.g. URLs) of the uploaded file pages to be deleted. [{'source': str, 'page': str}]
+        :param sources_and_pages: List of sources and pages of the uploaded file pages to be deleted. [{'source': str, 'page': str}]
         :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
         :return: None
         :raises: RuntimeError if any part of the deletion process fails.

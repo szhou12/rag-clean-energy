@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import hashlib
 from datetime import datetime
 import inspect
+from typing import Optional
 
 class MySQLManager:
     def __init__(self, host, user, password, port, db_name):
@@ -386,30 +387,47 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for batch sources {sources}: {e}")
             return []
         
-    def get_file_pages(self, session, metadata: list[dict]):
+    def get_file_pages(self, session, metadata: Optional[list[dict]] = None) -> list[dict]:
         """
-        Get documents from FilePage table by ('source', 'page') pairs.
+        Get documents from FilePage table either by ('source', 'page') pairs if metadata is provided,
+        or fetch all rows if metadata is None.
 
         :param session: SQLAlchemy session.
-        :param metadata: List of document metadata dictionaries, containing at least a 'source' and 'page' to match.
-                                Example: [{'source': 'path/to/one.pdf', 'page': '1', ...}, {'source': 'path/to/one.pdf', 'page': '2', ...}]
-        :return: List of existing documents (matching source and page) in the database.
+        :param metadata: Optional list of document metadata dictionaries, containing at least a 'source' and 'page' to match.
+                        Example: [{'source': 'path/to/one.pdf', 'page': '1', ...}, {'source': 'path/to/one.pdf', 'page': '2', ...}]
+        :return: List of dictionaries, where each dictionary represents a FilePage object in the database.
+                Example: [{'id': 1, 'source': 'path/to/file.pdf', 'page': '1', 'date': '2024-10-08', 'language': 'en'}, ...]
         """
-        if not metadata:
-            return []  # Early return if no sources or pages are provided
-        
         try:
-            # Build a list of tuples representing the source and page pairs
-            source_page_pairs = [(item['source'], item['page']) for item in metadata]
+            # Case 1: No metadata provided, fetch all file pages
+            if metadata is None:
+                sql_stmt = select(FilePage)
+            # Case 2: Metadata provided, filter by ('source', 'page') pairs
+            else:
+                if not metadata:
+                    return []  # Early return if no sources or pages are provided
+                
+                source_page_pairs = [(item['source'], item['page']) for item in metadata]
+                sql_stmt = select(FilePage).where(
+                    tuple_(FilePage.source, FilePage.page).in_(source_page_pairs)
+                )
 
-            # Query all FilePage objects that match any of the (source, page) pairs in the list
-            sql_stmt = select(FilePage).where(
-                tuple_(FilePage.source, FilePage.page).in_(source_page_pairs)
-            )
-
+            # Execute query and fetch matching FilePage objects
             existing_docs = session.scalars(sql_stmt).all()
 
-            # TODO: NOT COMPLETED YET!!! What to return?
+            # Convert each FilePage object into a dictionary
+            result = [
+                {
+                    'id': doc.id,
+                    'source': doc.source,
+                    'page': doc.page,
+                    'date': doc.date.strftime('%Y-%m-%d %H:%M:%S'),
+                    'language': doc.language
+                }
+                for doc in existing_docs
+            ]
+
+            return result
 
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching file pages for sources and pages: {e}")
