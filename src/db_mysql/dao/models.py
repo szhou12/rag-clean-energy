@@ -88,15 +88,6 @@ class WebPageChunk(Base):
     
     
 class FilePage(Base):
-    # __tablename__ = 'file_page'
-    # id = Column(Integer, autoincrement=True)
-    # source = Column(String(255), primary_key=True, nullable=False) # Source file name
-    # page = Column(String(255), primary_key=True, nullable=False) # PDF page number or Excel sheet name
-    # date = Column(DateTime, nullable=False, default=datetime.now) # The date when the file page was parsed
-    # language = Column(String(10), nullable=False, default='en') # Language of the content
-
-    # # Define relationship with/Create a link to FilePageChunk
-    # chunks = relationship("FilePageChunk", back_populates="file_page")
     __tablename__ = 'file_page'
     id = Column(Integer, primary_key=True, autoincrement=True)
     source = Column(String(255), nullable=False)  # Source file name
@@ -148,22 +139,6 @@ class FilePage(Base):
         return self.days_since_added() > days
     
 class FilePageChunk(Base):
-    # __tablename__ = 'file_page_chunk'
-
-    # # Chunk id = UUID4
-    # id = Column(String(36), primary_key=True)
-    
-    # # Composite foreign key referencing both source and page from FilePage
-    # source = Column(String(255), nullable=False)
-    # page = Column(String(255), nullable=False)
-
-    # # Define foreign key constraint on (source, page)
-    # __table_args__ = (
-    #     ForeignKeyConstraint(['source', 'page'], ['file_page.source', 'file_page.page']),
-    # )
-
-    # # Relationship back to the parent FilePage
-    # file_page = relationship("FilePage", back_populates="chunks")
     __tablename__ = 'file_page_chunk'
 
     # Chunk id = UUID4

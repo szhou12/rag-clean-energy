@@ -114,16 +114,21 @@ class RAGAgent:
         :return: None
         """
         try:
-            # Step 1: Parse the file based on the file extension
+            # Step 1: Check if the file already exists in the database
+            if self._file_source_exists(filepath):
+                print(f"File {filepath} already exists in the database.")
+                return
+
+            # Step 2: Parse the file based on the file extension
             docs, metadata = self._parse_file(filepath, language)
 
-            # Step 2: Clean content before splitting
+            # Step 3: Clean content before splitting
             self.text_processor.clean_page_content(docs)
 
-            # Step 3: Split content into manageable chunks
+            # Step 4: Split content into manageable chunks
             new_file_pages_chunks = self.text_processor.split_text(docs)
 
-            # Step 4: Embed each chunk (Document) and save to the vector store
+            # Step 5: Embed each chunk (Document) and save to the vector store
             chunk_metadata_list = self.insert_file_data(docs_metadata=metadata, chunks=new_file_pages_chunks, language=language)
             print(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
 
@@ -231,7 +236,7 @@ class RAGAgent:
         
         with parser_class(filepath) as parser:
             try:
-                docs, metadata = parser.load_and_parse()
+                docs, metadata = parser.load_and_parse() # metadata := [{'source': src, 'page': page}]
 
                 # Further processing of docs and metadata
                 # Step 1: Augment metadata with language and ensure 'page' is a string
@@ -314,6 +319,30 @@ class RAGAgent:
             self.mysql_manager.close_session(session)
 
         return new_docs, expired_docs, up_to_date_docs
+    
+    def _file_source_exists(self, filepath: str) -> bool:
+        """
+        Check if the file already exists in the FilePage database based on the source filename.
+
+        :param filepath: The file path to check.
+        :return: True if the file exists in the database, otherwise False.
+        """
+        # Extract the filename from the file path
+        filename = os.path.basename(filepath)
+
+        # Query the database to see if the filename exists in the FilePage table
+        session = self.mysql_manager.create_session()
+        try:
+            # Check if the file exists in the database
+            existing_file = self.mysql_manager.check_file_exists_by_source(session, filename)
+
+            # Return True if the file exists, False otherwise
+            return existing_file is not None
+        except Exception as e:
+            print(f"Error checking if file exists in the database: {e}")
+            return False
+        finally:
+            self.mysql_manager.close_session(session)
     
     def extract_metadata(self, docs: List[Document], refresh_frequency: Optional[int] = None, language: Literal["en", "zh"] = "en", extra_metadata: Optional[dict] = None):
         """

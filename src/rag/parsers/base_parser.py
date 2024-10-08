@@ -20,7 +20,8 @@ class BaseParser(ABC):
             raise FileNotFoundError(f"The file {filepath} does not exist.")
         
         self.filepath = filepath
-        self.file_basename, self.file_ext = os.path.splitext(os.path.basename(self.filepath))
+        self.filename = os.path.basename(self.filepath) # filename with extension
+        self.file_basename, self.file_ext = os.path.splitext(self.filename)
 
         self.mode: Literal['r', 'rb'] = self._determine_file_mode()
         self.file = open(self.filepath, self.mode)

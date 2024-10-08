@@ -80,7 +80,7 @@ class MySQLManager:
             return set()
             
 
-    def check_web_page_exists(self, session, url):
+    def check_web_page_exists(self, session, url: str):
         """
         Check if a web page already exists in the database.
         if exists, return the first WebPage object.
@@ -88,11 +88,19 @@ class MySQLManager:
         cur_checksum = hashlib.sha256(url.encode('utf-8')).hexdigest()
         # Check if URL is already in the database
         # SELECT first row FROM WebPage WHERE checksum = cur_checksum
-        sql_stmt = select(WebPage).filter_by(checksum=cur_checksum)
+        sql_stmt = select(WebPage).where(WebPage.checksum == cur_checksum)
         existing_page = session.scalars(sql_stmt).first()
-        if existing_page:
-            return existing_page
-        return None
+        return existing_page
+    
+    def check_file_exists_by_source(self, session, filename: str):
+        """
+        Check if a file source already exists in the database.
+        if exists, return the first FilePage object.
+        NOTE: coerce checking - it checks only source, assuming if source exists, then all pages exist.
+        """
+        sql_stmt = select(FilePage).where(FilePage.source == filename)
+        existing_file = session.scalars(sql_stmt).first()
+        return existing_file
 
 
     def insert_web_page(self, session, url, refresh_freq=None, language='en'):
@@ -377,22 +385,49 @@ class MySQLManager:
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for batch sources {sources}: {e}")
             return []
+        
+    def get_file_pages(self, session, metadata: list[dict]):
+        """
+        Check if the documents already exist in the FilePage table.
 
-    def get_file_page_chunk_ids(self, session, sources_and_pages: list[dict[str, str]]):
+        :param session: SQLAlchemy session.
+        :param metadata: List of document metadata dictionaries, containing at least a 'source' and 'page' to match.
+                                Example: [{'source': 'one.com', 'page': '1', ...}, {'source': 'two.com', 'page': '2', ...}]
+        :return: List of existing documents (matching source and page) in the database.
+        """
+        if not metadata:
+            return []  # Early return if no sources or pages are provided
+        
+        try:
+            # Build a list of tuples representing the source and page pairs
+            source_page_pairs = [(item['source'], item['page']) for item in metadata]
+
+            # Query all FilePage objects that match any of the (source, page) pairs in the list
+            sql_stmt = select(FilePage).where(
+                tuple_(FilePage.source, FilePage.page).in_(source_page_pairs)
+            )
+
+            existing_docs = session.scalars(sql_stmt).all()
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching file pages for sources and pages: {e}")
+            return []
+
+
+    def get_file_page_chunk_ids(self, session, metadata: list[dict]):
         """
         Get all chunk IDs for the given list of sources and pages.
 
         :param session: SQLAlchemy session to interact with the database.
-        :param sources_and_pages: List of dictionaries where each dictionary contains a 'source' and 'page' to match.
-                                Example: [{'source': 'example.com', 'page': '1'}, {'source': 'example.com', 'page': '2'}]
+        :param metadata: List of dictionaries where each dictionary contains at least a 'source' and 'page' to match.
+                                Example: [{'source': 'one.com', 'page': '1', ...}, {'source': 'two.com', 'page': '2', ...}]
         :return: List of chunk IDs whose (source, page) pairs match the input list.
         """
-        if not sources_and_pages:
+        if not metadata:
             return []  # Early return if no sources or pages are provided
 
         try:
             # Build a list of tuples representing the source and page pairs
-            source_page_pairs = [(item['source'], item['page']) for item in sources_and_pages]
+            source_page_pairs = [(item['source'], item['page']) for item in metadata]
 
             # Query all FilePageChunk objects that match any of the (source, page) pairs in the list
             sql_stmt = select(FilePageChunk.id).where(

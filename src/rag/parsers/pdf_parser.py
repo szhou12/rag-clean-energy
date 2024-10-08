@@ -33,6 +33,6 @@ class PDFParser(BaseParser):
         loader = PyMuPDFLoader(self.filepath)
         docs = loader.load()
 
-        metadata = [{"source": self.file.name, "page": doc.metadata.get('page', None)} for doc in docs]
+        metadata = [{"source": self.filename, "page": doc.metadata.get('page', None)} for doc in docs]
 
         return docs, metadata
