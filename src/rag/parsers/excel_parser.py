@@ -33,7 +33,7 @@ class ExcelParser(BaseParser):
         docs = []
         metadata = []
 
-        excel_data = pd.read_excel(self.file, sheet_name=None)  # Read all sheets
+        excel_data = pd.read_excel(self.filepath, sheet_name=None)  # Read all sheets
         
         # iterate over each sheet
         for sheet_name, df in excel_data.items():
@@ -48,7 +48,7 @@ class ExcelParser(BaseParser):
             loader = UnstructuredMarkdownLoader(file_path, mode="elements")
             docs.extend(loader.load())
 
-            metadata.append({"source": self.filename, "page": sheet_name})
+            metadata.append({"source": self.filepath, "page": sheet_name})
 
             self.delete_markdown_sheet(sheet_name)
         

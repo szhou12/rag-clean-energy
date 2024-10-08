@@ -124,6 +124,7 @@ with st.sidebar:
             print('Saving file to temp directory')
             with open(os.path.join(temp_dir, uploaded_file.name), mode='wb') as w:
                 w.write(uploaded_file.getvalue())
+            st.write(f"Saved to filepath: {file_path}")
         rag_agent.process_file(file_path)
 
     ## URL Scraping

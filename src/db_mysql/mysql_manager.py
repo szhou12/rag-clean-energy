@@ -92,13 +92,13 @@ class MySQLManager:
         existing_page = session.scalars(sql_stmt).first()
         return existing_page
     
-    def check_file_exists_by_source(self, session, filename: str):
+    def check_file_exists_by_source(self, session, file_source: str):
         """
         Check if a file source already exists in the database.
         if exists, return the first FilePage object.
         NOTE: coerce checking - it checks only source, assuming if source exists, then all pages exist.
         """
-        sql_stmt = select(FilePage).where(FilePage.source == filename)
+        sql_stmt = select(FilePage).where(FilePage.source == file_source)
         existing_file = session.scalars(sql_stmt).first()
         return existing_file
 
@@ -388,11 +388,11 @@ class MySQLManager:
         
     def get_file_pages(self, session, metadata: list[dict]):
         """
-        Check if the documents already exist in the FilePage table.
+        Get documents from FilePage table by ('source', 'page') pairs.
 
         :param session: SQLAlchemy session.
         :param metadata: List of document metadata dictionaries, containing at least a 'source' and 'page' to match.
-                                Example: [{'source': 'one.com', 'page': '1', ...}, {'source': 'two.com', 'page': '2', ...}]
+                                Example: [{'source': 'path/to/one.pdf', 'page': '1', ...}, {'source': 'path/to/one.pdf', 'page': '2', ...}]
         :return: List of existing documents (matching source and page) in the database.
         """
         if not metadata:
@@ -408,6 +408,9 @@ class MySQLManager:
             )
 
             existing_docs = session.scalars(sql_stmt).all()
+
+            # TODO: NOT COMPLETED YET!!! What to return?
+
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching file pages for sources and pages: {e}")
             return []
@@ -419,7 +422,7 @@ class MySQLManager:
 
         :param session: SQLAlchemy session to interact with the database.
         :param metadata: List of dictionaries where each dictionary contains at least a 'source' and 'page' to match.
-                                Example: [{'source': 'one.com', 'page': '1', ...}, {'source': 'two.com', 'page': '2', ...}]
+                                Example: [{'source': 'path/to/one.pdf', 'page': '1', ...}, {'source': 'path/to/one.pdf', 'page': '2', ...}]
         :return: List of chunk IDs whose (source, page) pairs match the input list.
         """
         if not metadata:

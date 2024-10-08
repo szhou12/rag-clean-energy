@@ -7,18 +7,19 @@ class PDFParser(BaseParser):
     
     def save_file(self):
         """
-        Save the PDF file to the directory = self.dir
-
+        Ensure the PDF file exists in the specified directory = self.dir.
+        Since we're only dealing with existing PDFs, no new file writing is required.
         :return: The file path where the file is saved.
         """
         # Create the directory if it does not exist yet
         if not os.path.exists(self.dir):
             os.makedirs(self.dir, exist_ok=True)
-        
-        if not os.path.exists(self.filepath):
-            print(f'Saving {self.file.name} to directory: {self.dir}')
-            with open(self.filepath, mode='wb') as w:
-                w.write(self.file.getvalue())
+
+        # In this case, assume the file is already at self.filepath and just return the path
+        if os.path.exists(self.filepath):
+            print(f'File already exists at {self.filepath}')
+        else:
+            raise FileNotFoundError(f"The file {self.filepath} does not exist to save.")
         
         return self.filepath
 
@@ -33,6 +34,6 @@ class PDFParser(BaseParser):
         loader = PyMuPDFLoader(self.filepath)
         docs = loader.load()
 
-        metadata = [{"source": self.filename, "page": doc.metadata.get('page', None)} for doc in docs]
+        metadata = [{"source": self.filepath, "page": doc.metadata.get('page', None)} for doc in docs]
 
         return docs, metadata

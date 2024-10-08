@@ -116,7 +116,7 @@ class RAGAgent:
         try:
             # Step 1: Check if the file already exists in the database
             if self._file_source_exists(filepath):
-                print(f"File {filepath} already exists in the database.")
+                print(f"File <{filepath}> already exists in the database.")
                 return
 
             # Step 2: Parse the file based on the file extension
@@ -234,33 +234,31 @@ class RAGAgent:
         else:
             raise ValueError(f"Unsupported file type: {file_ext}")
         
-        with parser_class(filepath) as parser:
-            try:
-                docs, metadata = parser.load_and_parse() # metadata := [{'source': src, 'page': page}]
+        parser = parser_class(filepath)
+        try:
+            docs, metadata = parser.load_and_parse() # metadata := [{'source': src, 'page': page}]
 
-                # Further processing of docs and metadata
-                # Step 1: Augment metadata with language and ensure 'page' is a string
-                for item in metadata:
-                    item["language"] = language
-                    item["page"] = str(item["page"])  # Convert page number to string
-                
-                # Step 2: Additional processing for Excel files
-                if file_ext in ['.xls', '.xlsx']:
-                    for doc, meta in zip(docs, metadata):
-                        # Replace doc.page_content with doc.metadata['text_as_html']
-                        if 'text_as_html' in doc.metadata:
-                            doc.page_content = doc.metadata['text_as_html']
-                        # Add doc.metadata['page'] = metadata['page']
-                        doc.metadata['page'] = meta['page']
-                
-                return docs, metadata
+            # Further processing of docs and metadata
+            # Step 1: Augment metadata with language and ensure 'page' is a string
+            for item in metadata:
+                item["language"] = language
+                item["page"] = str(item["page"])  # Convert page number to string
             
-            except Exception as e:
-                raise RuntimeError(f"Error parsing file {filepath}: {e}")
+            # Step 2: Additional processing for Excel files
+            if file_ext in ['.xls', '.xlsx']:
+                for doc, meta in zip(docs, metadata):
+                    # Replace doc.page_content with doc.metadata['text_as_html']
+                    if 'text_as_html' in doc.metadata:
+                        doc.page_content = doc.metadata['text_as_html']
+                    # Add doc.metadata['page'] = metadata['page']
+                    doc.metadata['page'] = meta['page']
+            
+            return docs, metadata
+        
+        except Exception as e:
+            raise RuntimeError(f"Error parsing file {filepath}: {e}")
 
         
-    
-    
     def _init_embedder(self, embedder_type):
         """
         Initialize the embedding model based on the provided type.
@@ -322,19 +320,19 @@ class RAGAgent:
     
     def _file_source_exists(self, filepath: str) -> bool:
         """
-        Check if the file already exists in the FilePage database based on the source filename.
+        Check if the file already exists in the FilePage database based on the source filepath.
 
         :param filepath: The file path to check.
         :return: True if the file exists in the database, otherwise False.
         """
         # Extract the filename from the file path
-        filename = os.path.basename(filepath)
+        # filename = os.path.basename(filepath)
 
         # Query the database to see if the filename exists in the FilePage table
         session = self.mysql_manager.create_session()
         try:
             # Check if the file exists in the database
-            existing_file = self.mysql_manager.check_file_exists_by_source(session, filename)
+            existing_file = self.mysql_manager.check_file_exists_by_source(session, filepath)
 
             # Return True if the file exists, False otherwise
             return existing_file is not None
