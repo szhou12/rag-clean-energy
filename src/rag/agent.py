@@ -252,6 +252,8 @@ class RAGAgent:
                         doc.page_content = doc.metadata['text_as_html']
                     # Add doc.metadata['page'] = metadata['page']
                     doc.metadata['page'] = meta['page']
+                    # Replace doc.metadata['source'] with metadata['source'] as doc.metadata['source'] is .md
+                    doc.metadata['source'] = meta['source']
             
             return docs, metadata
         

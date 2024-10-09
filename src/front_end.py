@@ -58,56 +58,59 @@ def get_filename_from_path(filepath):
 # Set up the Streamlit page
 st.set_page_config(page_title="Data Table", layout="wide")
 
-# Add a title
-st.title("Data Table For Uploaded Files")
 
-# Initialize session state for the DataFrame if it doesn't exist
-if 'df' not in st.session_state:
-    # Modify the data to include only the filename instead of the full path
-    for row in data:
-        row['source'] = get_filename_from_path(row['source'])  # Replace source with the filename
-    
-    st.session_state.df = pd.DataFrame(data)
+tab1, tab2 = st.tabs(["Web", "File"])
 
-# Create a copy of the DataFrame for display
-display_df = st.session_state.df.copy()
+with tab1:
+    st.title("Web Page")
+    st.write("In Development...")
 
 
-# Display the data as an editable table
-display_df['Delete'] = False  # Add a default "Delete" column with checkboxes (False by default)
+with tab2:
+    # Add a title
+    st.title("Data Table For Uploaded Files")
 
-# Display the data as an editable table and capture the edited dataframe
-edited_df = st.data_editor(
-    display_df,
-    hide_index=True,
-    column_config={
-        "Delete": st.column_config.CheckboxColumn(
-            "Delete",
-            help="Select to delete",
-            default=False,
-        ),
-        "source": "File Name"  # Rename 'source' column to 'File Name'
-    },
-    disabled=["id", "source", "page", "date", "language"],  # Disable editing on these columns
-    key="data_editor",
-)
+    # Initialize session state for the DataFrame if it doesn't exist
+    if 'df' not in st.session_state:
+        # Modify the data to include only the filename instead of the full path
+        for row in data:
+            row['source'] = get_filename_from_path(row['source'])  # Replace source with the filename
+        
+        st.session_state.df = pd.DataFrame(data)
 
-# Add a button to apply deletions
-if st.button("Delete Selected Rows"):
-    # Use the edited dataframe to determine which rows to delete
-    rows_to_keep = edited_df[~edited_df['Delete']]
-    
-    # Update the session state DataFrame
-    st.session_state.df = rows_to_keep.drop(columns=['Delete']).reset_index(drop=True)
-    
-    st.success("Selected rows have been deleted.")
-    st.rerun()  # Rerun the script to reflect changes immediately
+    # Create a copy of the DataFrame for display
+    display_df = st.session_state.df.copy()
 
-# Optional: Add a filter for the 'page' column
-# page_filter = st.selectbox("Filter by page", options=["All"] + list(st.session_state.df['page'].unique()))
-# if page_filter != "All":
-#     filtered_df = st.session_state.df[st.session_state.df['page'] == page_filter]
-#     st.dataframe(filtered_df)
+
+    # Display the data as an editable table
+    display_df['Delete'] = False  # Add a default "Delete" column with checkboxes (False by default)
+
+    # Display the data as an editable table and capture the edited dataframe
+    edited_df = st.data_editor(
+        display_df,
+        hide_index=True,
+        column_config={
+            "Delete": st.column_config.CheckboxColumn(
+                "Delete",
+                help="Select to delete",
+                default=False,
+            ),
+            "source": "File Name"  # Rename 'source' column to 'File Name'
+        },
+        disabled=["id", "source", "page", "date", "language"],  # Disable editing on these columns
+        key="data_editor",
+    )
+
+    # Add a button to apply deletions
+    if st.button("Delete Selected Rows"):
+        # Use the edited dataframe to determine which rows to delete
+        rows_to_keep = edited_df[~edited_df['Delete']]
+        
+        # Update the session state DataFrame
+        st.session_state.df = rows_to_keep.drop(columns=['Delete']).reset_index(drop=True)
+        
+        st.success("Selected rows have been deleted.")
+        st.rerun()  # Rerun the script to reflect changes immediately
 
 
 with st.sidebar:
@@ -123,3 +126,33 @@ with st.sidebar:
                 w.write(uploaded_file.getvalue())
             st.write(f"Saved to filepath: {file_path}")
         rag_agent.process_file(file_path)
+        st.success(f"File uploaded and parsed!")
+
+    ## URL Scraping
+    url = st.text_input("Website URL")
+    max_pages = st.number_input("Maximum number of pages to scrape:", min_value=1, value=1)
+    autodownload = st.checkbox("Enable autodownload of attached files", value=False)
+    language = st.selectbox("Select Language", options=["en", "zh"], index=0)
+
+    # Button to start scraping
+    if st.button("Start Scraping"):
+        if url:
+            with st.spinner("Scraping..."):
+                try:
+                    # Call the RAGAgent's process_url method to scrape content
+                    num_docs, num_downloaded_files = rag_agent.process_url(url, max_pages=max_pages, autodownload=autodownload, language=language)
+
+                    # Display the scraping results
+                    st.success(f"Scraping completed! {num_docs} pages scraped.")
+                    if autodownload:
+                        st.write(f"Files downloaded: {num_downloaded_files}")
+
+                    # Display scraped URLs from the scraper
+                    st.write("Scraped URLs:")
+                    for url in rag_agent.scraper.scraped_urls:
+                        st.write(url)
+
+                except Exception as e:
+                    st.error(f"An error occurred: {e}")
+        else:
+            st.warning("Please enter a valid URL.")
