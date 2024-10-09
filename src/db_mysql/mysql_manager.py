@@ -1,7 +1,7 @@
 # src/db_mysql/mysql_manager.py
 
 from db_mysql.dao import Base, WebPage, WebPageChunk, FilePage, FilePageChunk
-from sqlalchemy import create_engine, insert, select, delete, update, tuple_
+from sqlalchemy import create_engine, insert, select, delete, update, tuple_, func
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -387,10 +387,74 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for batch sources {sources}: {e}")
             return []
         
+    def get_files(self, session, sources: Optional[list[dict]] = None) -> list[dict]:
+        """
+        Get unique sources from the FilePage table, excluding the 'page' field,
+        and count the total number of pages/sheets for each unique source.
+
+        :param session: SQLAlchemy session.
+        :param sources: Optional list of dictionaries to filter by 'source'.
+                        Example: [{'source': 'one.pdf'}, {'source': 'two.pdf'}, ...]
+        :return: List of dictionaries containing unique sources with all fields except 'page',
+                along with a count of how many records exist for each source.
+                Example: [{'source': 'one.pdf', 'date': '2024-10-08', 'language': 'en', 'total_records': 3}, ...]
+        """
+        try:
+             # Create a subquery to get the first record (earliest date) for each source
+            subquery = (
+                select(
+                    FilePage.source,
+                    FilePage.date,
+                    FilePage.language,
+                    func.row_number().over(partition_by=FilePage.source, order_by=FilePage.date).label('rn')
+                )
+                .subquery()
+            )
+
+            # Main query to get the unique sources and count the total number of records per source
+            sql_stmt = (
+                select(
+                    subquery.c.source,
+                    subquery.c.date,
+                    subquery.c.language,
+                    func.count(FilePage.source).label('total_records')
+                )
+                .select_from(subquery)
+                .join(FilePage, FilePage.source == subquery.c.source)
+                .where(subquery.c.rn == 1)
+                .group_by(subquery.c.source, subquery.c.date, subquery.c.language)
+            )
+
+            # Filter by provided sources if not empty list
+            if sources is not None and sources:
+                source_list = [item['source'] for item in sources]
+                sql_stmt = sql_stmt.where(FilePage.source.in_(source_list))
+
+            # Execute the query and fetch the results
+            unique_sources = session.execute(sql_stmt).all()
+
+            # Convert results into a list of dictionaries
+            result = [
+                {
+                    'source': source.source,
+                    'date': source.date.strftime('%Y-%m-%d %H:%M:%S'),
+                    'language': source.language,
+                    'total_records': source.total_records
+                }
+                for source in unique_sources
+            ]
+
+            return result
+
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching unique sources: {e}")
+            return []
+
+        
     def get_file_pages(self, session, metadata: Optional[list[dict]] = None) -> list[dict]:
         """
         Get documents from FilePage table either by ('source', 'page') pairs if metadata is provided,
-        or fetch all rows if metadata is None.
+        or fetch all rows if metadata is None. Unique at ('source', 'page') level.
 
         :param session: SQLAlchemy session.
         :param metadata: Optional list of document metadata dictionaries, containing at least a 'source' and 'page' to match.
@@ -405,7 +469,7 @@ class MySQLManager:
             # Case 2: Metadata provided, filter by ('source', 'page') pairs
             else:
                 if not metadata:
-                    return []  # Early return if no sources or pages are provided
+                    return []  # Early return if no sources or pages are provided. e.g., empty list
                 
                 source_page_pairs = [(item['source'], item['page']) for item in metadata]
                 sql_stmt = select(FilePage).where(

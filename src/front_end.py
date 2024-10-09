@@ -95,9 +95,10 @@ with tab2:
                 help="Select to delete",
                 default=False,
             ),
-            "source": "File Name"  # Rename 'source' column to 'File Name'
+            "source": "File Name",  # Rename 'source' column to 'File Name'
+            "total_records": "Total Pages/Sheets"
         },
-        disabled=["id", "source", "page", "date", "language"],  # Disable editing on these columns
+        disabled=["source", "date", "language", "total_records"],  # Disable editing on these columns
         key="data_editor",
     )
 

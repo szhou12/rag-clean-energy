@@ -582,10 +582,27 @@ class RAGAgent:
         finally:
             self.mysql_manager.close_session(session)
 
-
-    def get_file_metadata(self, sources_and_pages: Optional[list[dict]] = None):
+    def get_file_metadata(self, sources: Optional[list[str]] = None):
         """
-        Get FilePage content (metadata) for uploaded files by their sources and pages.
+        Get FilePage content (metadata) for uploaded files by their sources if provided; otherwise, return all on source level.
+        
+        :param sources: Optional list of sources of the uploaded file pages to be fetched. [{'source': str}]. If None, return all.
+        :return: List[dict] - Metadata of the uploaded file pages stored in FilePage table.
+        """
+        session = self.mysql_manager.create_session()
+        try:
+            file_metadata = self.mysql_manager.get_files(session, sources)
+            return file_metadata
+        except Exception as e:
+            print(f"Error getting file metadata: {e}")
+            return []
+        finally:
+            self.mysql_manager.close_session(session)
+
+
+    def get_file_page_metadata(self, sources_and_pages: Optional[list[dict]] = None):
+        """
+        Get FilePage content (metadata) for uploaded files by their sources and pages if provided; otherwise, return all on (source, page) level.
         
         :param sources_and_pages: Optional list of sources and pages of the uploaded file pages to be fetched. [{'source': str, 'page': str}]. If None, return all.
         :return: List[dict] - Metadata of the uploaded file pages stored in FilePage table.
