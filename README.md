@@ -191,3 +191,8 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 
 ### Nginx
 - [Streamlit with Nginx](https://medium.com/featurepreneur/streamlit-with-nginx-bde7a9a41e6c)
+
+### FastAPI
+```linux
+uvicorn main:app --reload
+```
