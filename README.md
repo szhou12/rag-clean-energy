@@ -193,6 +193,11 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 - [Streamlit with Nginx](https://medium.com/featurepreneur/streamlit-with-nginx-bde7a9a41e6c)
 
 ### FastAPI
+- Redirect to `/src` where `backend.py` is located. In terminal, run `uvicorn backend:app --reload`
+
+- Typical command to run FastAPI:
 ```linux
-uvicorn main:app --reload
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
+- [What is the purpose of Uvicorn?](https://stackoverflow.com/questions/71435960/what-is-the-purpose-of-uvicorn)
+- [Lifespan Event Documentation](https://fastapi.tiangolo.com/advanced/events/)

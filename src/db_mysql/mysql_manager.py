@@ -39,7 +39,7 @@ class MySQLManager:
     def close(self):
         """Close the database engine."""
         self.engine.dispose()
-        print("Database connection closed.")
+        print("MySQL Database connection closed.")
 
     def get_all_urls(self, session):
         """

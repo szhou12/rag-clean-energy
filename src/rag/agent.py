@@ -41,8 +41,6 @@ class RAGAgent:
         self.mysql_manager = MySQLManager(**mysql_config)
 
         self.scraper = WebScraper(mysql_manager=self.mysql_manager)
-        
-        # self._file_parsers = {}  # {'.pdf': PDFParser(), '.xls': ExcelParser(), '.xlsx': ExcelParser(), ...}
 
         self.text_processor = TextProcessor()
 
@@ -67,31 +65,31 @@ class RAGAgent:
             temperature=0,
         )
         
-        # TODO: change embedder_type='openai' to 'bge' later when Chinese embedding is supported
-        try:
-            self.embedder = self._init_embedder(embedder_type='openai')
-        except ValueError as e:
-            print(f"Initialization Error for Embedding Model: {e}")
-            self.embedder = None
-        except Exception as e:
-            print(f"Unexpected Error in getting Embedding Model: {e}")
-            self.embedder = None
+        ## TODO: deprecate
+        # self._file_parsers = {}  # {'.pdf': PDFParser(), '.xls': ExcelParser(), '.xlsx': ExcelParser(), ...}
 
-        self.vector_store = ChromaVectorStore(
-            collection_name="default",
-            embedding_model=self.embedder,
-            persist_db_name=vector_db,
-        )
+        # try:
+        #     self.embedder = self._init_embedder(embedder_type='openai')
+        # except ValueError as e:
+        #     print(f"Initialization Error for Embedding Model: {e}")
+        #     self.embedder = None
+        # except Exception as e:
+        #     print(f"Unexpected Error in getting Embedding Model: {e}")
+        #     self.embedder = None
+
+        # self.vector_store = ChromaVectorStore(
+        #     collection_name="default",
+        #     embedding_model=self.embedder,
+        #     persist_db_name=vector_db,
+        # )
 
 
-        # TODO: in progress
         self.embedders = {
             "openai": OpenAIEmbedding().model,
             "bge_en": BgeEmbedding(model_name="BAAI/bge-small-en-v1.5").model,
             "bge_zh": BgeEmbedding(model_name="BAAI/bge-small-zh-v1.5").model,
         }
 
-        # TODO: in progress
         self.vector_stores = {
             "en": ChromaVectorStore(
                 collection_name="docs_en",  # English collection
@@ -104,6 +102,23 @@ class RAGAgent:
                 persist_db_name=vector_db,
             ),
         }
+
+    def close(self):
+        """
+        Close all resources in RAGAgent.
+        """
+        # Close MySQL connections or sessions
+        if self.mysql_manager:
+            self.mysql_manager.close()
+
+        # Close any vector stores (if applicable)
+        # if self.vector_stores:
+            # for store in self.vector_stores.values():
+            #     store.close()  # Assuming ChromaVectorStore has a `close` method
+            # self.vector_stores.clear()
+
+        print("RAGAgent resources cleaned up.")
+
 
     def process_file(self, filepath: str, language: Literal["en", "zh"] = "en"):
         """
@@ -532,21 +547,21 @@ class RAGAgent:
             # 1-2: MySQL: Get language by source
             language = self.mysql_manager.get_web_page_language_by_single_source(session, source)
             # 1-3: Chroma: Get old documents from Chroma before deletion (for potential rollback)
-            # TODO: old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
+            # TODO deprecate: old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
             old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
 
             # Step 2: Delete
             # 2-1: MySQL: Delete WebPageChunk by old ids
             self.mysql_manager.delete_web_page_chunks_by_ids(session, old_chunk_ids)
             # 2-2: Chroma: Delete old chunks by old ids
-            # TODO: self.vector_store.delete(ids=old_chunk_ids)
+            # TODO deprecate: self.vector_store.delete(ids=old_chunk_ids)
             self.vector_stores[language].delete(ids=old_chunk_ids)
 
             # Step 3: Upsert
             # 3-1: MySQL: Update the 'date' field for WebPage
             self.mysql_manager.update_web_pages_date(session, [source])
             # 3-2: Chroma: Insert new chunks into Chroma, get new chunk ids.
-            # TODO: new_chunks_metadata = self.vector_store.add_documents(chunks)
+            # TODO deprecate: new_chunks_metadata = self.vector_store.add_documents(chunks)
             new_chunks_metadata = self.vector_stores[language].add_documents(chunks)
             # 3-3: MySQL: Insert new WebPageChunk into MySQL
             self.mysql_manager.insert_web_page_chunks(session, new_chunks_metadata)
@@ -567,12 +582,12 @@ class RAGAgent:
                 # If we already inserted new chunks into Chroma, we need to delete them to maintain consistency
                 if 'new_chunks_metadata' in locals():
                     new_chunk_ids = [item['id'] for item in new_chunks_metadata]
-                    # TODO: self.vector_store.delete(new_chunk_ids)
+                    # TODO deprecate: self.vector_store.delete(new_chunk_ids)
                     self.vector_stores[language].delete(new_chunk_ids)
 
                 # Restore old chunks to Chroma if they were deleted
                 if old_documents:
-                    # TODO: self.vector_store.add_documents(documents=old_documents, ids=old_chunk_ids)
+                    # TODO deprecate: self.vector_store.add_documents(documents=old_documents, ids=old_chunk_ids)
                     self.vector_stores[language].add_documents(documents=old_documents, ids=old_chunk_ids)
             except Exception as chroma_rollback_error:
                 print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
@@ -747,7 +762,7 @@ class RAGAgent:
         :return: Formatted response to the query
         """
         # Step 1: Retrieve relevant chunks from the vector store
-        # TODO: relevant_chunks = self._retrieve_contextual_docs()
+        # TODO deprecate: relevant_chunks = self._retrieve_contextual_docs()
         relevant_chunks = self._retrieve_bilingual_contextual_docs()
         
         # Step 2: Format the response using the predefined template
@@ -763,36 +778,37 @@ class RAGAgent:
         # return response["answer"] # use this if use retrieval_chain.invoke()
         return response
     
-    def _retrieve_contextual_docs(self):
-        """
-        Retrieve relevant documents from the vector store based on the chat history and the user's query.
-        1. This function first looks at the chat history and the current user's question.
-        2. It then uses the LLM to reformulate the question if necessary. e.g., user query "Please explain green hydrogen to me" might be transformed to "What is green hydrogen and how does it relate to renewable energy sources?" This reformulation takes into account the previous conversation about renewable energy sources.
-        3. The reformulated question is then used to retrieve relevant documents from the vector store. In our example, it retrieved three key pieces of information about green hydrogen.
+    ## TODO: deprecate
+    # def _retrieve_contextual_docs(self):
+    #     """
+    #     Retrieve relevant documents from the vector store based on the chat history and the user's query.
+    #     1. This function first looks at the chat history and the current user's question.
+    #     2. It then uses the LLM to reformulate the question if necessary. e.g., user query "Please explain green hydrogen to me" might be transformed to "What is green hydrogen and how does it relate to renewable energy sources?" This reformulation takes into account the previous conversation about renewable energy sources.
+    #     3. The reformulated question is then used to retrieve relevant documents from the vector store. In our example, it retrieved three key pieces of information about green hydrogen.
 
-        :return: Runnable[Any, List[Document]] - An LCEL Runnable. The Runnable output is a list of Documents. For simple understanding, returned is a list of relevant documents retrieved from the vector store
-        """
-        if not self.vector_store:
-            raise ValueError("Vector store is not initialized. Cannot create retriever chain.")
+    #     :return: Runnable[Any, List[Document]] - An LCEL Runnable. The Runnable output is a list of Documents. For simple understanding, returned is a list of relevant documents retrieved from the vector store
+    #     """
+    #     if not self.vector_store:
+    #         raise ValueError("Vector store is not initialized. Cannot create retriever chain.")
         
-        vector_store_retriever = self.vector_store.as_retriever()
+    #     vector_store_retriever = self.vector_store.as_retriever()
 
-        contextualize_q_system_prompt = (
-            "Given a chat history and the latest user question "
-            "which might reference context in the chat history, "
-            "formulate a standalone question which can be understood "
-            "without the chat history. Do NOT answer the question, "
-            "just reformulate it if needed and otherwise return it as is."
-        )
+    #     contextualize_q_system_prompt = (
+    #         "Given a chat history and the latest user question "
+    #         "which might reference context in the chat history, "
+    #         "formulate a standalone question which can be understood "
+    #         "without the chat history. Do NOT answer the question, "
+    #         "just reformulate it if needed and otherwise return it as is."
+    #     )
 
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", contextualize_q_system_prompt),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-        ])
+    #     prompt = ChatPromptTemplate.from_messages([
+    #         ("system", contextualize_q_system_prompt),
+    #         MessagesPlaceholder(variable_name="chat_history"),
+    #         ("human", "{input}"),
+    #     ])
 
-        retrieved_docs = create_history_aware_retriever(self.llm, vector_store_retriever, prompt)
-        return retrieved_docs
+    #     retrieved_docs = create_history_aware_retriever(self.llm, vector_store_retriever, prompt)
+    #     return retrieved_docs
     
     def _retrieve_bilingual_contextual_docs(self):
         """
