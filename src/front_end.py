@@ -1,9 +1,10 @@
+import os
 import streamlit as st
 import pandas as pd
-import os
 from dotenv import load_dotenv
 from db_mysql import MySQLManager
 from rag import RAGAgent
+from rag import DataAgent
 
 # data = [
 #     {
@@ -47,8 +48,11 @@ mysql_config = {
     }
 
 
-rag_agent = RAGAgent(mysql_config=mysql_config, vector_db="db_chroma")
-data = rag_agent.get_file_metadata()
+# rag_agent = RAGAgent(mysql_config=mysql_config, vector_db="db_chroma")
+# data = rag_agent.get_file_metadata()
+
+data_agent = DataAgent(mysql_config=mysql_config, vector_db="db_chroma")
+data = data_agent.get_file_metadata()
 
 
 # Function to extract file name from the full path
@@ -126,7 +130,9 @@ with st.sidebar:
             with open(os.path.join(temp_dir, uploaded_file.name), mode='wb') as w:
                 w.write(uploaded_file.getvalue())
             st.write(f"Saved to filepath: {file_path}")
-        rag_agent.process_file(file_path)
+        # rag_agent.process_file(file_path)
+        data_agent.process_file(file_path)
+
         st.success(f"File uploaded and parsed!")
 
     ## URL Scraping
@@ -141,7 +147,8 @@ with st.sidebar:
             with st.spinner("Scraping..."):
                 try:
                     # Call the RAGAgent's process_url method to scrape content
-                    num_docs, num_downloaded_files = rag_agent.process_url(url, max_pages=max_pages, autodownload=autodownload, language=language)
+                    # num_docs, num_downloaded_files = rag_agent.process_url(url, max_pages=max_pages, autodownload=autodownload, language=language)
+                    num_docs, num_downloaded_files = data_agent.process_url(url, max_pages=max_pages, autodownload=autodownload, language=language)
 
                     # Display the scraping results
                     st.success(f"Scraping completed! {num_docs} pages scraped.")
@@ -150,7 +157,9 @@ with st.sidebar:
 
                     # Display scraped URLs from the scraper
                     st.write("Scraped URLs:")
-                    for url in rag_agent.scraper.scraped_urls:
+                    # for url in rag_agent.scraper.scraped_urls:
+                    #     st.write(url)
+                    for url in data_agent.scraper.scraped_urls:
                         st.write(url)
 
                 except Exception as e:
