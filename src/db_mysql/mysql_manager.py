@@ -1,14 +1,13 @@
 # src/db_mysql/mysql_manager.py
-
-from db_mysql.dao import Base, WebPage, WebPageChunk, FilePage, FilePageChunk
+import hashlib
+import inspect
+from datetime import datetime
+from typing import Optional
 from sqlalchemy import create_engine, insert, select, delete, update, tuple_, func
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
-import hashlib
-from datetime import datetime
-import inspect
-from typing import Optional
+from db_mysql.dao import Base, WebPage, WebPageChunk, FilePage, FilePageChunk
 
 class MySQLManager:
     def __init__(self, host, user, password, port, db_name):
@@ -40,6 +39,7 @@ class MySQLManager:
         """Close the database engine."""
         self.engine.dispose()
         print("MySQL Database connection closed.")
+
 
     def get_all_urls(self, session):
         """
@@ -93,17 +93,6 @@ class MySQLManager:
         existing_page = session.scalars(sql_stmt).first()
         return existing_page
     
-    def check_file_exists_by_source(self, session, file_source: str):
-        """
-        Check if a file source already exists in the database.
-        if exists, return the first FilePage object.
-        NOTE: coerce checking - it checks only source, assuming if source exists, then all pages exist.
-        """
-        sql_stmt = select(FilePage).where(FilePage.source == file_source)
-        existing_file = session.scalars(sql_stmt).first()
-        return existing_file
-
-
     def insert_web_page(self, session, url, refresh_freq=None, language='en'):
         """
         Insert a new web page if it does not exist, with a specified language.
@@ -161,43 +150,6 @@ class MySQLManager:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
         
-
-    def insert_file_pages(self, session, document_info_list):
-        """
-        Insert multiple new file pages in batch.
-
-        :param session: SQLAlchemy session to interact with the database.
-        :param document_info_list: List[dict] [{'source': filename, 'page': page number/sheet name, 'language': lang}]
-        """
-        try:
-            for document in document_info_list:
-                source = document.get('source')
-                if source:
-                    # Add the current date for the web page
-                    document['date'] = datetime.now()
-
-            # Perform bulk insert using ORM's insert statement
-            sql_stmt = insert(FilePage)
-            session.execute(sql_stmt, document_info_list)
-        except SQLAlchemyError as e:
-            session.rollback()
-            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePage: {e}")
-
-        
-    def insert_file_page_chunks(self, session, chunk_info_list):
-        """
-        Insert chunks associated with a file page in batch.
-
-        :param session: SQLAlchemy session to interact with the database.
-        :param chunk_info_list: List[dict] [{'id': uuid4, 'source': filename, 'page': page number/sheet name}]
-        """
-        try:
-            # Perform bulk insert using ORM's insert statement and Session.execute()
-            sql_stmt = insert(FilePageChunk)
-            session.execute(sql_stmt, chunk_info_list)
-        except SQLAlchemyError as e:
-            session.rollback()
-            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePageChunk: {e}")
 
     def update_web_pages_date(self, session, urls: list[str]):
         """
@@ -299,6 +251,140 @@ class MySQLManager:
             session.rollback()  # Rollback in case of error
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
 
+        
+    def get_web_page_chunk_ids_by_single_source(self, session, source: str):
+        """
+        Get all chunk IDs for the given the source.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param source: The source URL to match.
+        :return: List of chunk IDs whose source matches the input.
+        """
+        try:
+            # Query all WebPageChunk objects that match the source URL
+            sql_stmt = select(WebPageChunk.id).filter_by(source=source)
+            chunk_ids = session.scalars(sql_stmt).all()
+            return chunk_ids
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for {source}: {e}")
+            return []
+        
+    def get_web_page_chunk_ids_by_sources(self, session, sources: list[str]):
+        """
+        Get all chunk IDs for the given list of sources.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param sources: List of source URLs to match.
+        :return: List of chunk IDs whose sources match the input list.
+        """
+        if not sources:
+            return []  # Early return if no sources are provided
+
+        try:
+            # Query all WebPageChunk objects that match any of the source URLs in the list
+            sql_stmt = select(WebPageChunk.id).where(WebPageChunk.source.in_(sources))
+            chunk_ids = session.scalars(sql_stmt).all()
+            return chunk_ids
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for batch sources {sources}: {e}")
+            return []
+        
+        
+        
+    def get_web_page_language_by_single_source(self, session, source: str):
+        """
+        Get the language of the web page for the given source.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param source: The source URL to match.
+        :return: The language of the web page if found, otherwise None.
+        """
+        try:
+            # Query the language field for the source URL
+            sql_stmt = select(WebPage.language).filter_by(source=source)
+            language = session.scalars(sql_stmt).first()
+            return language
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching language for {source}: {e}")
+            return None
+    
+    def get_web_page_languages_by_sources(self, session, sources: list[str]) -> dict[str, list[str]]:
+        """
+        Get the languages of the web pages for the given list of sources and group them by 'en' and 'zh'.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param sources: List of source URLs to match.
+        :return: A dictionary with two keys 'en' and 'zh', where the values are lists of source URLs. {'en': [source 1, source 2, ...], 'zh': [source 1, ...]}
+        """
+        if not sources:
+            return {'en': [], 'zh': []}
+        
+        try:
+            # Query the WebPage objects that match any of the source URLs
+            sql_stmt = select(WebPage.source, WebPage.language).where(WebPage.source.in_(sources))
+            results = session.execute(sql_stmt).all()
+
+            # Initialize the dictionary with two keys 'en' and 'zh'
+            languages_dict = {'en': [], 'zh': []}
+
+            # Group sources based on their language
+            for source, language in results:
+                if language in languages_dict:
+                    languages_dict[language].append(source)
+
+            return languages_dict
+
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching languages for sources: {e}")
+            return {'en': [], 'zh': []}
+        
+    def check_file_exists_by_source(self, session, file_source: str):
+        """
+        Check if a file source already exists in the database.
+        if exists, return the first FilePage object.
+        NOTE: coerce checking - it checks only source, assuming if source exists, then all pages exist.
+        """
+        sql_stmt = select(FilePage).where(FilePage.source == file_source)
+        existing_file = session.scalars(sql_stmt).first()
+        return existing_file
+    
+    def insert_file_pages(self, session, document_info_list):
+        """
+        Insert multiple new file pages in batch.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param document_info_list: List[dict] [{'source': filename, 'page': page number/sheet name, 'language': lang}]
+        """
+        try:
+            for document in document_info_list:
+                source = document.get('source')
+                if source:
+                    # Add the current date for the web page
+                    document['date'] = datetime.now()
+
+            # Perform bulk insert using ORM's insert statement
+            sql_stmt = insert(FilePage)
+            session.execute(sql_stmt, document_info_list)
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePage: {e}")
+
+        
+    def insert_file_page_chunks(self, session, chunk_info_list):
+        """
+        Insert chunks associated with a file page in batch.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param chunk_info_list: List[dict] [{'id': uuid4, 'source': filename, 'page': page number/sheet name}]
+        """
+        try:
+            # Perform bulk insert using ORM's insert statement and Session.execute()
+            sql_stmt = insert(FilePageChunk)
+            session.execute(sql_stmt, chunk_info_list)
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePageChunk: {e}")
+        
     def delete_file_pages_by_sources_and_pages(self, session, sources_and_pages: list[dict[str, str]]):
         """
         Delete file pages that match the given list of (source, page) pairs.
@@ -348,45 +434,7 @@ class MySQLManager:
         except SQLAlchemyError as e:
             session.rollback()  # Rollback in case of error
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
-
-        
-    def get_web_page_chunk_ids_by_single_source(self, session, source: str):
-        """
-        Get all chunk IDs for the given the source.
-
-        :param session: SQLAlchemy session to interact with the database.
-        :param source: The source URL to match.
-        :return: List of chunk IDs whose source matches the input.
-        """
-        try:
-            # Query all WebPageChunk objects that match the source URL
-            sql_stmt = select(WebPageChunk.id).filter_by(source=source)
-            chunk_ids = session.scalars(sql_stmt).all()
-            return chunk_ids
-        except SQLAlchemyError as e:
-            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for {source}: {e}")
-            return []
-        
-    def get_web_page_chunk_ids_by_sources(self, session, sources: list[str]):
-        """
-        Get all chunk IDs for the given list of sources.
-
-        :param session: SQLAlchemy session to interact with the database.
-        :param sources: List of source URLs to match.
-        :return: List of chunk IDs whose sources match the input list.
-        """
-        if not sources:
-            return []  # Early return if no sources are provided
-
-        try:
-            # Query all WebPageChunk objects that match any of the source URLs in the list
-            sql_stmt = select(WebPageChunk.id).where(WebPageChunk.source.in_(sources))
-            chunk_ids = session.scalars(sql_stmt).all()
-            return chunk_ids
-        except SQLAlchemyError as e:
-            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for batch sources {sources}: {e}")
-            return []
-        
+    
     def get_files(self, session, sources: Optional[list[dict]] = None) -> list[dict]:
         """
         Get unique sources from the FilePage table, excluding the 'page' field,
@@ -524,54 +572,5 @@ class MySQLManager:
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for sources and pages: {e}")
             return []
-        
-        
-    def get_web_page_language_by_single_source(self, session, source: str):
-        """
-        Get the language of the web page for the given source.
-
-        :param session: SQLAlchemy session to interact with the database.
-        :param source: The source URL to match.
-        :return: The language of the web page if found, otherwise None.
-        """
-        try:
-            # Query the language field for the source URL
-            sql_stmt = select(WebPage.language).filter_by(source=source)
-            language = session.scalars(sql_stmt).first()
-            return language
-        except SQLAlchemyError as e:
-            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching language for {source}: {e}")
-            return None
-    
-    def get_web_page_languages_by_sources(self, session, sources: list[str]) -> dict[str, list[str]]:
-        """
-        Get the languages of the web pages for the given list of sources and group them by 'en' and 'zh'.
-
-        :param session: SQLAlchemy session to interact with the database.
-        :param sources: List of source URLs to match.
-        :return: A dictionary with two keys 'en' and 'zh', where the values are lists of source URLs. {'en': [source 1, source 2, ...], 'zh': [source 1, ...]}
-        """
-        if not sources:
-            return {'en': [], 'zh': []}
-        
-        try:
-            # Query the WebPage objects that match any of the source URLs
-            sql_stmt = select(WebPage.source, WebPage.language).where(WebPage.source.in_(sources))
-            results = session.execute(sql_stmt).all()
-
-            # Initialize the dictionary with two keys 'en' and 'zh'
-            languages_dict = {'en': [], 'zh': []}
-
-            # Group sources based on their language
-            for source, language in results:
-                if language in languages_dict:
-                    languages_dict[language].append(source)
-
-            return languages_dict
-
-        except SQLAlchemyError as e:
-            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching languages for sources: {e}")
-            return {'en': [], 'zh': []}
-        
     
 
