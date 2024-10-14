@@ -450,7 +450,7 @@ class DataAgent:
         finally:
             self.mysql_manager.close_session(session)
 
-    def get_web_page_metadata(self, sources: Optional[List[str]] = None):
+    def get_web_page_metadata(self, sources: Optional[List[str]] = None) -> List[dict]:
         """
         Get WebPage content (metadata) for web pages by their sources if provided; otherwise, return all.
         
@@ -459,8 +459,8 @@ class DataAgent:
         """
         session = self.mysql_manager.create_session()
         try:
-            web_metadata = self.mysql_manager.get_web_pages(session, sources)
-            return web_metadata
+            web_pages = self.mysql_manager.get_web_pages(session, sources)
+            return web_pages
         except Exception as e:
             print(f"Error getting web metadata: {e}")
             return []
@@ -484,6 +484,7 @@ class DataAgent:
         # Process deletion for Chinese sources
         if sources_by_language['zh']:
             self.delete_web_content_and_metadata(sources_by_language['zh'], language="zh")
+
     
     def delete_web_content_and_metadata(self, sources: List[str], language: Literal["en", "zh"]):
         """
@@ -580,7 +581,7 @@ class DataAgent:
         finally:
             self.mysql_manager.close_session(session)
     
-    def get_file_metadata(self, sources: Optional[List[str]] = None):
+    def get_file_metadata(self, sources: Optional[List[str]] = None) -> List[dict]:
         """
         Get FilePage content (metadata) for uploaded files by their sources if provided; otherwise, return all on source level.
         

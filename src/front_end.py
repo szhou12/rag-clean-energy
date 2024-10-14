@@ -61,7 +61,7 @@ with tab1:
 
     # URL input for scraping
     url = st.text_input("Website URL")
-    max_pages = st.number_input("Maximum number of pages to scrape:", min_value=1, max_value=10, value=1)
+    max_pages = st.number_input("Maximum number of pages to scrape (max 10 pages):", min_value=1, max_value=10, value=1)
     autodownload = st.checkbox("Enable autodownload of attached files", value=False)
     language = st.selectbox("Select Language", options=["en", "zh"], index=0)
 
@@ -89,11 +89,60 @@ with tab1:
                     st.error(f"An error occurred: {e}")
         else:
             st.warning("Please enter a valid URL.")
+    
+
+    ############# Display data table #############
+    st.title("Table for Scraped Web Pages")
+
+    web_data = data_agent.get_web_page_metadata()
+    # Initialize the DataFrame in session state if not already set
+    if 'web_df' not in st.session_state:
+        # Prepare the data: exclude 'id' from display
+        for row in web_data:
+            del row['id']  # Remove 'id' field as per your requirements
+        
+        st.session_state.web_df = pd.DataFrame(web_data)
+
+    # Create a copy of the DataFrame for display
+    display_web_df = st.session_state.web_df.copy()
+    
+    # Add a "Delete" column with checkboxes for deletion
+    display_web_df['Delete'] = False  
+
+    # Display the data as an editable table
+    edited_web_df = st.data_editor(
+        display_web_df,
+        hide_index=True,
+        column_config={
+            "Delete": st.column_config.CheckboxColumn(
+                "Delete", help="Select to delete", default=False
+            ),
+            "source": "Source (URL)",  # Rename 'source' column for display
+            "refresh_frequency": st.column_config.NumberColumn(
+                "Refresh Frequency", min_value=0, help="Frequency in days"
+            )
+        },
+        disabled=["source", "date", "language"],  # Disable editing for these columns
+        key="web_data_editor",
+    )
+
+    # Add a button to delete selected rows
+    if st.button("Submit Changes to Web Pages"):
+        # Filter out the rows marked for deletion
+        rows_to_keep = edited_web_df[~edited_web_df['Delete']]
+
+        # Update the session state DataFrame
+        st.session_state.web_df = rows_to_keep.drop(columns=['Delete']).reset_index(drop=True)
+
+        st.success("Selected web pages have been deleted.")
+        st.rerun()  # Rerun the script to reflect changes
 
 
 
 with tab2:
     ############# File upload section #############
+    st.title("File Uploading")
+
     uploaded_file = st.file_uploader("Upload a File", type=["pdf", "xlsx", "xls"])
     if uploaded_file:
         temp_dir = os.path.join(os.path.dirname(__file__), '..', 'temp')
@@ -111,19 +160,19 @@ with tab2:
             st.error(f"Error processing file: {e}")
 
     ############# Display data table #############
-    st.title("Data Table For Uploaded Files")
+    st.title("Table for Uploaded Files")
 
     # Retrieve and modify data
-    data = data_agent.get_file_metadata()
-    for row in data:
+    file_data = data_agent.get_file_metadata()
+    for row in file_data:
         row['source'] = os.path.basename(row['source'])  # Extract filename
     
     # Initialize DataFrame in session state
-    if 'df' not in st.session_state:
-        st.session_state.df = pd.DataFrame(data)
+    if 'file_df' not in st.session_state:
+        st.session_state.file_df = pd.DataFrame(file_data)
 
     # Create a copy of the DataFrame for display
-    display_df = st.session_state.df.copy()
+    display_df = st.session_state.file_df.copy()
     display_df['Delete'] = False  # Add a default "Delete" column
 
     # Display editable table
@@ -142,8 +191,8 @@ with tab2:
     )
 
     # Delete selected rows
-    if st.button("Delete Selected Rows"):
+    if st.button("Submit Changes to Files"):
         rows_to_keep = edited_df[~edited_df['Delete']]
-        st.session_state.df = rows_to_keep.drop(columns=['Delete']).reset_index(drop=True)
+        st.session_state.file_df = rows_to_keep.drop(columns=['Delete']).reset_index(drop=True)
         st.success("Selected rows have been deleted.")
         st.rerun()
