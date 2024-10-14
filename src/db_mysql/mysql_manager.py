@@ -13,6 +13,8 @@ class MySQLManager:
     def __init__(self, host, user, password, port, db_name):
         """
         Initialize the SQLAlchemy engine and session.
+        NOTE:
+        1. All CRUD operations in MySQLManager are not deemed as atomic operations (i.e. they are part of a larger transaction in DataAgent). Therefore, no commit is made in CRUD here.
         """
 
         self.db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{db_name}"
@@ -41,7 +43,10 @@ class MySQLManager:
         print("MySQL Database connection closed.")
 
 
-    def get_all_urls(self, session):
+    ###########################
+    ### Web Data Operations ###
+    ###########################
+    def get_all_urls(self, session) -> set:
         """
         Get all URLs currently stored in the WebPage table.
 
@@ -59,7 +64,7 @@ class MySQLManager:
             return set()
         
     
-    def get_active_urls(self, session):
+    def get_active_urls(self, session) -> set:
         """
         Get URLs that either do not require refresh (refresh_frequency = None) or
         are not due for refresh based on the last scraped date and refresh frequency.
@@ -93,7 +98,7 @@ class MySQLManager:
         existing_page = session.scalars(sql_stmt).first()
         return existing_page
     
-    def insert_web_page(self, session, url, refresh_freq=None, language='en'):
+    def insert_web_page(self, session, url: str, refresh_freq: int = None, language: str = 'en'):
         """
         Insert a new web page if it does not exist, with a specified language.
 
@@ -110,7 +115,7 @@ class MySQLManager:
             session.rollback()  # Rollback transaction in case of error
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error insert WebPage: {e}")
 
-    def insert_web_pages(self, session, document_info_list):
+    def insert_web_pages(self, session, document_info_list: list[dict]):
         """
         Insert multiple new web pages in batch.
 
@@ -135,7 +140,7 @@ class MySQLManager:
             session.rollback()  # Rollback transaction in case of error
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPage: {e}")
         
-    def insert_web_page_chunks(self, session, chunk_info_list):
+    def insert_web_page_chunks(self, session, chunk_info_list: list[dict]):
         """
         Insert chunks associated with a web page in batch.
 
@@ -225,12 +230,13 @@ class MySQLManager:
             # Create a delete statement with a filter for the provided sources
             sql_stmt = delete(WebPage).where(WebPage.source.in_(sources))
             session.execute(sql_stmt)
+            # NOTE: No commit here as this transaction is part of a larger transaction in DataAgent
 
         except SQLAlchemyError as e:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting WebPages: {e}")
 
-    def delete_web_page_chunks_by_ids(self, session, chunk_ids):
+    def delete_web_page_chunks_by_ids(self, session, chunk_ids: list[str]):
         """
         Delete web page chunks that match the given list of chunk IDs.
 
@@ -246,13 +252,14 @@ class MySQLManager:
             # Create a delete statement with a filter for the chunk IDs
             sql_stmt = delete(WebPageChunk).where(WebPageChunk.id.in_(chunk_ids))
             session.execute(sql_stmt)
+            # NOTE: No commit here as this transaction is part of a larger transaction in DataAgent
 
         except SQLAlchemyError as e:
             session.rollback()  # Rollback in case of error
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
 
         
-    def get_web_page_chunk_ids_by_single_source(self, session, source: str):
+    def get_web_page_chunk_ids_by_single_source(self, session, source: str) -> list[str]:
         """
         Get all chunk IDs for the given the source.
 
@@ -269,7 +276,7 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for {source}: {e}")
             return []
         
-    def get_web_page_chunk_ids_by_sources(self, session, sources: list[str]):
+    def get_web_page_chunk_ids_by_sources(self, session, sources: list[str]) -> list[str]:
         """
         Get all chunk IDs for the given list of sources.
 
@@ -288,10 +295,9 @@ class MySQLManager:
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for batch sources {sources}: {e}")
             return []
-        
-        
-        
-    def get_web_page_language_by_single_source(self, session, source: str):
+    
+
+    def get_web_page_language_by_single_source(self, session, source: str) -> str:
         """
         Get the language of the web page for the given source.
 
@@ -337,7 +343,55 @@ class MySQLManager:
         except SQLAlchemyError as e:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching languages for sources: {e}")
             return {'en': [], 'zh': []}
-        
+    
+    def get_web_pages(self, session, sources: Optional[list[str]] = None) -> list[dict]:
+        """
+        Get web pages from the WebPage table either by sources if provided,
+        or fetch all rows if no sources are provided.
+
+        :param session: SQLAlchemy session.
+        :param sources: Optional list of sources (URLs) to filter by.
+                        Example: ['https://iea.org/building', 'https://iea.org']
+        :return: List of dictionaries, where each dictionary represents a WebPage object,
+                 excluding 'checksum'.
+                 Example: [{'id': 1, 'source': 'https://example.com', 'date': '2024-10-08', 
+                            'language': 'en', 'refresh_frequency': 30}, ...]
+        """
+        try:
+            # Case 1: No sources provided, fetch all web pages
+            if sources is None:
+                sql_stmt = select(WebPage)
+            # Case 2: Sources provided, filter by 'source' field
+            else:
+                if not sources:
+                    return []  # Early return if the list of sources is empty
+                
+                sql_stmt = select(WebPage).where(WebPage.source.in_(sources))
+
+            # Execute the query and fetch matching WebPage objects
+            web_pages = session.scalars(sql_stmt).all()
+
+            # Convert each WebPage object into a dictionary
+            result = [
+                {
+                    'id': page.id,
+                    'source': page.source,
+                    'date': page.date.strftime('%Y-%m-%d %H:%M:%S'),
+                    'language': page.language,
+                    'refresh_frequency': page.refresh_frequency
+                }
+                for page in web_pages
+            ]
+            return result
+        except SQLAlchemyError as e:
+            print(f"[{self.__class__.__name__}.get_web_pages] Error fetching web pages: {e}")
+            return []
+
+    
+
+    ############################
+    ### File Data Operations ###
+    ############################
     def check_file_exists_by_source(self, session, file_source: str):
         """
         Check if a file source already exists in the database.
@@ -348,7 +402,7 @@ class MySQLManager:
         existing_file = session.scalars(sql_stmt).first()
         return existing_file
     
-    def insert_file_pages(self, session, document_info_list):
+    def insert_file_pages(self, session, document_info_list: list[dict]):
         """
         Insert multiple new file pages in batch.
 
@@ -370,7 +424,7 @@ class MySQLManager:
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePage: {e}")
 
         
-    def insert_file_page_chunks(self, session, chunk_info_list):
+    def insert_file_page_chunks(self, session, chunk_info_list: list[dict]):
         """
         Insert chunks associated with a file page in batch.
 
@@ -408,13 +462,12 @@ class MySQLManager:
                 tuple_(FilePage.source, FilePage.page).in_(source_page_pairs)
             )
             session.execute(sql_stmt)
-            session.commit()  # Commit the transaction to delete records
-
+            # NOTE: No commit here as this transaction is part of a larger transaction in DataAgent
         except SQLAlchemyError as e:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting FilePages: {e}")
         
-    def delete_file_page_chunks_by_ids(self, session, chunk_ids):
+    def delete_file_page_chunks_by_ids(self, session, chunk_ids: list[dict]):
         """
         Delete file page chunks that match the given list of chunk IDs.
 
@@ -430,6 +483,7 @@ class MySQLManager:
             # Create a delete statement with a filter for the chunk IDs
             sql_stmt = delete(FilePageChunk).where(FilePageChunk.id.in_(chunk_ids))
             session.execute(sql_stmt)
+            # NOTE: No commit here as this transaction is part of a larger transaction in DataAgent
 
         except SQLAlchemyError as e:
             session.rollback()  # Rollback in case of error
