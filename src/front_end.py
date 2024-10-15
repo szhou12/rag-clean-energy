@@ -56,6 +56,21 @@ st.set_page_config(page_title="Data Table", layout="wide")
 # Create tabs
 tab1, tab2 = st.tabs(["Web", "File"])
 
+def load_web_data():
+    """Fetch web page metadata from the database."""
+    web_data = data_agent.get_web_page_metadata()
+    if web_data:
+        # Prepare the data: Exclude 'id' field from display
+        for row in web_data:
+            del row['id']
+        return pd.DataFrame(web_data)
+    return pd.DataFrame()  # Return an empty DataFrame if no data found
+
+# Initialize or update web_df in session state
+if 'web_df' not in st.session_state or st.session_state.get('refresh_web_data'):
+    st.session_state.web_df = load_web_data()
+    st.session_state.refresh_web_data = False  # Reset the flag
+
 with tab1:
     st.title("Web Page Scraping")
 
@@ -80,34 +95,23 @@ with tab1:
                     if autodownload:
                         st.write(f"Files downloaded: {num_downloaded_files}")
 
-                    # Display scraped URLs
-                    st.write("Scraped URLs:")
-                    for scraped_url in data_agent.scraper.scraped_urls:
-                        st.write(scraped_url)
+                    # Update the DataFrame in session state
+                    st.session_state.web_df = load_web_data()
+                    st.rerun()  # Re-run to reflect changes
 
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
         else:
             st.warning("Please enter a valid URL.")
-    
 
-    ############# Display data table #############
+    ############# Display Data Table #############
     st.title("Table for Scraped Web Pages")
-
-    web_data = data_agent.get_web_page_metadata()
-    # Initialize the DataFrame in session state if not already set
-    if 'web_df' not in st.session_state:
-        # Prepare the data: exclude 'id' from display
-        for row in web_data:
-            del row['id']  # Remove 'id' field as per your requirements
-        
-        st.session_state.web_df = pd.DataFrame(web_data)
 
     # Create a copy of the DataFrame for display
     display_web_df = st.session_state.web_df.copy()
-    
+
     # Add a "Delete" column with checkboxes for deletion
-    display_web_df['Delete'] = False  
+    display_web_df['Delete'] = False
 
     # Display the data as an editable table
     edited_web_df = st.data_editor(
@@ -126,16 +130,30 @@ with tab1:
         key="web_data_editor",
     )
 
-    # Add a button to delete selected rows
+    # Button to submit changes (deletion of selected rows)
     if st.button("Submit Changes to Web Pages"):
-        # Filter out the rows marked for deletion
-        rows_to_keep = edited_web_df[~edited_web_df['Delete']]
+        # Collect rows marked for deletion
+        rows_to_delete = edited_web_df[edited_web_df['Delete']]
 
-        # Update the session state DataFrame
-        st.session_state.web_df = rows_to_keep.drop(columns=['Delete']).reset_index(drop=True)
+        if not rows_to_delete.empty:
+            # Extract sources and languages for deletion
+            sources_to_delete = rows_to_delete[['source', 'language']].to_dict(orient='records')
 
-        st.success("Selected web pages have been deleted.")
-        st.rerun()  # Rerun the script to reflect changes
+            try:
+                with st.spinner("Deleting selected web pages..."):
+                    # Delete the selected data
+                    data_agent.delete_web_data(metadata=sources_to_delete)
+                    st.success("Selected web pages have been deleted.")
+
+                # Update the DataFrame in session state
+                st.session_state.web_df = load_web_data()
+                st.experimental_rerun()  # Re-run to reflect changes
+
+            except Exception as e:
+                st.error(f"An error occurred during deletion: {e}")
+        else:
+            st.warning("No rows selected for deletion.")
+
 
 
 

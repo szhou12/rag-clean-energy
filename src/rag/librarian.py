@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 from typing import Optional, Literal, List, Tuple
 from langchain.schema import Document
 from db_mysql import MySQLManager
@@ -467,6 +468,25 @@ class DataAgent:
         finally:
             self.mysql_manager.close_session(session)
 
+    def delete_web_data(self, metadata: List[dict]):
+        """
+        Delete data for web pages by grouping sources based on their language.
+
+        :param metadata: List of dictionaries received from Front-End, each containing 'source' and 'language'.
+                                    Example: [{'source': 'example.com', 'language': 'en'}, 
+                                              {'source': 'example1.com', 'language': 'zh'}]
+        :return: None
+        """
+        # Step 1: Transform input to {'en': [source1, source2], 'zh': [source3, source4]}
+        sources_by_language = self._group_sources_by_key(data=metadata, key='language')
+
+        # Step 2: Delete data for each language group using existing logic
+        for language, sources in sources_by_language.items():
+            if sources:  # Proceed only if there are sources to delete
+                # self.delete_web_data_by_sources(sources)
+                self.delete_web_content_and_metadata(sources=sources, language=language)
+
+
     def delete_web_data_by_sources(self, sources: List[str]):
         """
         Delete data for multiple sources by their language.
@@ -501,6 +521,7 @@ class DataAgent:
             # Step 1: Get
             # 1-1: MySQL: Get all chunk ids for the given sources
             old_chunk_ids = self.mysql_manager.get_web_page_chunk_ids_by_sources(session, sources)
+            print(f"DEBUGGING Old chunk ids: {old_chunk_ids}")
             # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
             old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
 
@@ -515,7 +536,7 @@ class DataAgent:
             # Step 3: Commit MySQL transaction
             session.commit()
 
-            print(f"Successfully deleted data for sources: {sources}")
+            print(f"Successfully deleted data for sources in {language}: {sources}")
 
         except Exception as e:
             # Rollback MySQL transaction if any error occurs
@@ -665,3 +686,15 @@ class DataAgent:
             raise RuntimeError(f"Data deletion failed for sources {sources_and_pages}: {e}")
         finally:
             self.mysql_manager.close_session(session)
+
+    def _group_sources_by_key(self, data: List[dict], key: str) -> dict:
+        """
+        Group a list of dictionaries by a given key.
+
+        :param data: List of dictionaries to group. e.g., [{'source': 'example.com', 'language': 'en'}, {'source': 'example1.com', 'language': 'zh'}]
+        :param key: The key to group the sources by. e.g., key='language'
+        """
+        grouped_data = defaultdict(list)
+        for item in data:
+            grouped_data[item[key]].append(item['source'])
+        return dict(grouped_data)

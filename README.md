@@ -56,6 +56,7 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 1. `session.commit()` should be used inside a function or outside a function?
     - Outside a function if multiple database operations are part of a single workflow and this function is part of this workflow. e.g. Inserting a web page and its corresponding web page chunks are often used jointly.
     - Inside a function if this database operation is meant to be self-contained, and the transaction should be committed immediately after the operation.
+2. Best Practice for Data communication between Front-End and Back-End: Use JSON or a list of dictionaries.
 
 
 ## Improvements To-Do

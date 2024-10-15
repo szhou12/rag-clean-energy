@@ -108,7 +108,7 @@ class ChromaVectorStore(VectorStore):
         :raises: RuntimeError if document retrieval fails.
         """
         try:
-            documents = self.vector_store.get_by_ids(ids=ids)
+            documents = self.vector_store.get_by_ids(ids)
             return documents
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve documents by IDs from Chroma: {e}")
