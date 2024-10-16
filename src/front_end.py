@@ -147,7 +147,7 @@ with tab1:
 
                 # Update the DataFrame in session state
                 st.session_state.web_df = load_web_data()
-                st.experimental_rerun()  # Re-run to reflect changes
+                st.rerun()  # Re-run to reflect changes
 
             except Exception as e:
                 st.error(f"An error occurred during deletion: {e}")

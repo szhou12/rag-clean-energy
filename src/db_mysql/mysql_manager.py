@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import create_engine, insert, select, delete, update, tuple_, func
 from sqlalchemy_utils import database_exists, create_database
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
 from db_mysql.dao import Base, WebPage, WebPageChunk, FilePage, FilePageChunk
 
@@ -33,7 +33,7 @@ class MySQLManager:
         """Create a new session."""
         return self.Session()
 
-    def close_session(self, session):
+    def close_session(self, session: Session):
         """Close the session."""
         session.close()
     
@@ -46,7 +46,7 @@ class MySQLManager:
     ###########################
     ### Web Data Operations ###
     ###########################
-    def get_all_urls(self, session) -> set:
+    def get_all_urls(self, session: Session) -> set:
         """
         Get all URLs currently stored in the WebPage table.
 
@@ -64,7 +64,7 @@ class MySQLManager:
             return set()
         
     
-    def get_active_urls(self, session) -> set:
+    def get_active_urls(self, session: Session) -> set:
         """
         Get URLs that either do not require refresh (refresh_frequency = None) or
         are not due for refresh based on the last scraped date and refresh frequency.
@@ -86,7 +86,7 @@ class MySQLManager:
             return set()
             
 
-    def check_web_page_exists(self, session, url: str):
+    def check_web_page_exists(self, session: Session, url: str):
         """
         Check if a web page already exists in the database.
         if exists, return the first WebPage object.
@@ -98,7 +98,7 @@ class MySQLManager:
         existing_page = session.scalars(sql_stmt).first()
         return existing_page
     
-    def insert_web_page(self, session, url: str, refresh_freq: int = None, language: str = 'en'):
+    def insert_web_page(self, session: Session, url: str, refresh_freq: int = None, language: str = 'en'):
         """
         Insert a new web page if it does not exist, with a specified language.
 
@@ -115,7 +115,7 @@ class MySQLManager:
             session.rollback()  # Rollback transaction in case of error
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error insert WebPage: {e}")
 
-    def insert_web_pages(self, session, document_info_list: list[dict]):
+    def insert_web_pages(self, session: Session, document_info_list: list[dict]):
         """
         Insert multiple new web pages in batch.
 
@@ -140,7 +140,7 @@ class MySQLManager:
             session.rollback()  # Rollback transaction in case of error
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPage: {e}")
         
-    def insert_web_page_chunks(self, session, chunk_info_list: list[dict]):
+    def insert_web_page_chunks(self, session: Session, chunk_info_list: list[dict]):
         """
         Insert chunks associated with a web page in batch.
 
@@ -156,7 +156,7 @@ class MySQLManager:
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
         
 
-    def update_web_pages_date(self, session, urls: list[str]):
+    def update_web_pages_date(self, session: Session, urls: list[str]):
         """
         Update the 'date' field of the WebPage objects corresponding to the given URLs.
         Resets the date to the current date.
@@ -184,7 +184,7 @@ class MySQLManager:
             raise RuntimeError(f"Failed to update WebPage dates: {e}")
     
 
-    def update_single_web_page_date(self, session, url: str):
+    def update_single_web_page_date(self, session: Session, url: str):
         """
         Update the 'date' field of the WebPage object corresponding to the given URL.
         Resets the date to the current date.
@@ -213,7 +213,7 @@ class MySQLManager:
             raise RuntimeError(f"Failed to update WebPage date for URL: {e}")
 
 
-    def delete_web_pages_by_sources(self, session, sources: list[str]):
+    def delete_web_pages_by_sources(self, session: Session, sources: list[str]):
         """
         Delete web pages that match the given list of source URLs.
 
@@ -236,7 +236,7 @@ class MySQLManager:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting WebPages: {e}")
 
-    def delete_web_page_chunks_by_ids(self, session, chunk_ids: list[str]):
+    def delete_web_page_chunks_by_ids(self, session: Session, chunk_ids: list[str]):
         """
         Delete web page chunks that match the given list of chunk IDs.
 
@@ -259,7 +259,7 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
 
         
-    def get_web_page_chunk_ids_by_single_source(self, session, source: str) -> list[str]:
+    def get_web_page_chunk_ids_by_single_source(self, session: Session, source: str) -> list[str]:
         """
         Get all chunk IDs for the given the source.
 
@@ -276,7 +276,7 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching chunk IDs for {source}: {e}")
             return []
         
-    def get_web_page_chunk_ids_by_sources(self, session, sources: list[str]) -> list[str]:
+    def get_web_page_chunk_ids_by_sources(self, session: Session, sources: list[str]) -> list[str]:
         """
         Get all chunk IDs for the given list of sources.
 
@@ -297,7 +297,7 @@ class MySQLManager:
             return []
     
 
-    def get_web_page_language_by_single_source(self, session, source: str) -> str:
+    def get_web_page_language_by_single_source(self, session: Session, source: str) -> str:
         """
         Get the language of the web page for the given source.
 
@@ -314,7 +314,7 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching language for {source}: {e}")
             return None
     
-    def get_web_page_languages_by_sources(self, session, sources: list[str]) -> dict[str, list[str]]:
+    def get_web_page_languages_by_sources(self, session: Session, sources: list[str]) -> dict[str, list[str]]:
         """
         Get the languages of the web pages for the given list of sources and group them by 'en' and 'zh'.
 
@@ -344,7 +344,7 @@ class MySQLManager:
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error fetching languages for sources: {e}")
             return {'en': [], 'zh': []}
     
-    def get_web_pages(self, session, sources: Optional[list[str]] = None) -> list[dict]:
+    def get_web_pages(self, session: Session, sources: Optional[list[str]] = None) -> list[dict]:
         """
         Get web pages from the WebPage table either by sources if provided,
         or fetch all rows if no sources are provided.
@@ -392,7 +392,7 @@ class MySQLManager:
     ############################
     ### File Data Operations ###
     ############################
-    def check_file_exists_by_source(self, session, file_source: str):
+    def check_file_exists_by_source(self, session: Session, file_source: str):
         """
         Check if a file source already exists in the database.
         if exists, return the first FilePage object.
@@ -402,7 +402,7 @@ class MySQLManager:
         existing_file = session.scalars(sql_stmt).first()
         return existing_file
     
-    def insert_file_pages(self, session, document_info_list: list[dict]):
+    def insert_file_pages(self, session: Session, document_info_list: list[dict]):
         """
         Insert multiple new file pages in batch.
 
@@ -424,7 +424,7 @@ class MySQLManager:
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePage: {e}")
 
         
-    def insert_file_page_chunks(self, session, chunk_info_list: list[dict]):
+    def insert_file_page_chunks(self, session: Session, chunk_info_list: list[dict]):
         """
         Insert chunks associated with a file page in batch.
 
@@ -439,7 +439,7 @@ class MySQLManager:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert FilePageChunk: {e}")
         
-    def delete_file_pages_by_sources_and_pages(self, session, sources_and_pages: list[dict[str, str]]):
+    def delete_file_pages_by_sources_and_pages(self, session: Session, sources_and_pages: list[dict[str, str]]):
         """
         Delete file pages that match the given list of (source, page) pairs.
 
@@ -467,7 +467,7 @@ class MySQLManager:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting FilePages: {e}")
         
-    def delete_file_page_chunks_by_ids(self, session, chunk_ids: list[dict]):
+    def delete_file_page_chunks_by_ids(self, session: Session, chunk_ids: list[dict]):
         """
         Delete file page chunks that match the given list of chunk IDs.
 
@@ -489,7 +489,7 @@ class MySQLManager:
             session.rollback()  # Rollback in case of error
             print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error deleting chunks: {e}")
     
-    def get_files(self, session, sources: Optional[list[dict]] = None) -> list[dict]:
+    def get_files(self, session: Session, sources: Optional[list[dict]] = None) -> list[dict]:
         """
         Get unique sources from the FilePage table, excluding the 'page' field,
         and count the total number of pages/sheets for each unique source.
@@ -553,7 +553,7 @@ class MySQLManager:
             return []
 
         
-    def get_file_pages(self, session, metadata: Optional[list[dict]] = None) -> list[dict]:
+    def get_file_pages(self, session: Session, metadata: Optional[list[dict]] = None) -> list[dict]:
         """
         Get documents from FilePage table either by ('source', 'page') pairs if metadata is provided,
         or fetch all rows if metadata is None. Unique at ('source', 'page') level.
@@ -600,7 +600,7 @@ class MySQLManager:
             return []
 
 
-    def get_file_page_chunk_ids(self, session, metadata: list[dict]):
+    def get_file_page_chunk_ids(self, session: Session, metadata: list[dict]):
         """
         Get all chunk IDs for the given list of sources and pages.
 

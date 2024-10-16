@@ -101,14 +101,15 @@ class ChromaVectorStore(VectorStore):
         
     def get_documents_by_ids(self, ids: list[str]):
         """
-        Retrieve documents from the vector store by their unique IDs using Chroma's `get_by_ids`.
+        Retrieve documents from the vector store by their unique IDs using Chroma's `get`.
 
         :param ids: List of document IDs to retrieve.
         :return: List of Document objects corresponding to the provided IDs.
         :raises: RuntimeError if document retrieval fails.
         """
         try:
-            documents = self.vector_store.get_by_ids(ids)
+            # documents = self.vector_store.get_by_ids(ids)
+            documents = self.vector_store.get(ids)['documents']
             return documents
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve documents by IDs from Chroma: {e}")
