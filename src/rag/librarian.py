@@ -255,6 +255,18 @@ class DataAgent:
         
         except Exception as e:
             raise RuntimeError(f"Error parsing file {filepath}: {e}")
+
+    def _group_sources_by_key(self, data: List[dict], key: str) -> dict:
+        """
+        Group a list of dictionaries by a given key.
+
+        :param data: List of dictionaries to group. e.g., [{'source': 'example.com', 'language': 'en'}, {'source': 'example1.com', 'language': 'zh'}]
+        :param key: The key to group the sources by. e.g., key='language'
+        """
+        grouped_data = defaultdict(list)
+        for item in data:
+            grouped_data[item[key]].append(item['source'])
+        return dict(grouped_data)
     
     def _init_embedder(self, embedder_type: str):
         """
@@ -344,50 +356,6 @@ class DataAgent:
 
         return document_info_list
     
-    # def insert_web_data(self, docs_metadata: List[dict], chunks: List[Document], language: Literal["en", "zh"]):
-    #     """
-    #     Wrapper function to handle atomic insertion of scraped web content into Chroma (for embeddings) and MySQL (for metadata).
-    #     Implements the manual two-phase commit (2PC) pattern.
-        
-    #     :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL.
-    #     :param chunks: List[Document] - Chunks of document text to be inserted into Chroma.
-    #     :param language: The language of the inserted data content. Only "en" (English) or "zh" (Chinese) are accepted.
-    #     :raises: Exception if any part of the insertion process fails.
-    #     :return: List[dict] chunks_metadata - Metadata of chunks inserted into Chroma.
-    #     """
-    #     session = self.mysql_manager.create_session()
-    #     try:
-    #         # Step 1: Insert embeddings into Chroma (vector store)
-    #         chunks_metadata = self.vector_stores[language].add_documents(documents=chunks)
-
-    #         # Step 2: Insert metadata into MySQL
-    #         self.mysql_manager.insert_web_pages(session, docs_metadata)
-    #         self.mysql_manager.insert_web_page_chunks(session, chunks_metadata)
-
-    #         # Step 3: Commit MySQL transaction
-    #         session.commit()
-
-    #         # If both steps succeed, return the chunk metadata
-    #         return chunks_metadata
-
-    #     except Exception as e:
-    #         # Rollback MySQL transaction if any error occurs
-    #         session.rollback()
-    #         print(f"Error during data insertion into Chroma and MySQL: {e}")
-
-    #         # Rollback Chroma changes if MySQL fails
-    #         if 'chunks_metadata' in locals():
-    #             try:
-    #                 chunk_ids = [item['id'] for item in chunks_metadata]
-    #                 self.vector_stores[language].delete(ids=chunk_ids)  # Delete embeddings by ids in Chroma
-    #             except Exception as chroma_rollback_error:
-    #                 print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
-
-    #             raise RuntimeError(f"Data insertion failed: {e}")
-        
-    #     finally:
-    #         self.mysql_manager.close_session(session)
-
     def insert_web_data(self, docs_metadata: List[dict], chunks: List[Document], language: Literal["en", "zh"]) -> List[dict]:
         """
         Wrapper function to handle atomic insertion of scraped web content into Chroma (for embeddings) and MySQL (for metadata).
@@ -428,74 +396,6 @@ class DataAgent:
             # Re-raise the exception to notify the caller
             raise RuntimeError(f"Data insertion failed: {e}")
 
-
-    # def update_web_data(self, source: str, chunks: List[Document]):
-    #     """
-    #     Update data for a SINGLE source URL and its chunks.
-    #     Implements atomic behavior using manual two-phase commit (2PC) pattern.
-        
-    #     :param source: Single URL of the web page being updated.
-    #     :param chunks: List[Document] - New chunks of document text to be inserted into Chroma.
-    #     :raises: RuntimeError if any part of the update process fails.
-    #     :return: List[dict] new_chunks_metadata - Metadata of new chunks inserted into Chroma.
-    #     """
-    #     session = self.mysql_manager.create_session()
-    #     try:
-    #         # Step 1: Get
-    #         # 1-1: MySQL: Get old chunk ids by source
-    #         old_chunk_ids = self.mysql_manager.get_web_page_chunk_ids_by_single_source(session, source)
-    #         # 1-2: MySQL: Get language by source
-    #         language = self.mysql_manager.get_web_page_language_by_single_source(session, source)
-    #         # 1-3: Chroma: Get old documents from Chroma before deletion (for potential rollback)
-    #         # TODO deprecate: old_documents = self.vector_store.get_documents_by_ids(ids=old_chunk_ids)
-    #         old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
-
-    #         # Step 2: Delete
-    #         # 2-1: MySQL: Delete WebPageChunk by old ids
-    #         self.mysql_manager.delete_web_page_chunks_by_ids(session, old_chunk_ids)
-    #         # 2-2: Chroma: Delete old chunks by old ids
-    #         # TODO deprecate: self.vector_store.delete(ids=old_chunk_ids)
-    #         self.vector_stores[language].delete(ids=old_chunk_ids)
-
-    #         # Step 3: Upsert
-    #         # 3-1: MySQL: Update the 'date' field for WebPage
-    #         self.mysql_manager.update_web_pages_date(session, [source])
-    #         # 3-2: Chroma: Insert new chunks into Chroma, get new chunk ids.
-    #         # TODO deprecate: new_chunks_metadata = self.vector_store.add_documents(chunks)
-    #         new_chunks_metadata = self.vector_stores[language].add_documents(chunks)
-    #         # 3-3: MySQL: Insert new WebPageChunk into MySQL
-    #         self.mysql_manager.insert_web_page_chunks(session, new_chunks_metadata)
-
-    #         # Step 4: Commit MySQL transaction
-    #         session.commit()
-
-    #         # If all steps succeed, return the chunk metadata
-    #         return new_chunks_metadata
-            
-    #     except Exception as e:
-    #         # Rollback MySQL transaction if any error occurs
-    #         session.rollback()
-    #         print(f"Error updating data: {e}")
-            
-    #         # Rollback Chroma changes if MySQL fails
-    #         try:
-    #             # If we already inserted new chunks into Chroma, we need to delete them to maintain consistency
-    #             if 'new_chunks_metadata' in locals():
-    #                 new_chunk_ids = [item['id'] for item in new_chunks_metadata]
-    #                 # TODO deprecate: self.vector_store.delete(new_chunk_ids)
-    #                 self.vector_stores[language].delete(new_chunk_ids)
-
-    #             # Restore old chunks to Chroma if they were deleted
-    #             if old_documents:
-    #                 # TODO deprecate: self.vector_store.add_documents(documents=old_documents, ids=old_chunk_ids)
-    #                 self.vector_stores[language].add_documents(documents=old_documents, ids=old_chunk_ids)
-    #         except Exception as chroma_rollback_error:
-    #             print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
-
-    #         # Raise the error to indicate failure
-    #         raise RuntimeError(f"Data update failed: {e}")
-    #     finally:
-    #         self.mysql_manager.close_session(session)
 
     def update_web_data(self, source: str, chunks: List[Document]) -> List[dict]:
         """
@@ -584,7 +484,6 @@ class DataAgent:
         # Step 2: Delete data for each language group using existing logic
         for language, sources in sources_by_language.items():
             if sources:  # Proceed only if there are sources to delete
-                # self.delete_web_data_by_sources(sources)
                 self.delete_web_content_and_metadata(sources=sources, language=language)
 
 
@@ -605,56 +504,6 @@ class DataAgent:
         # Process deletion for Chinese sources
         if sources_by_language['zh']:
             self.delete_web_content_and_metadata(sources_by_language['zh'], language="zh")
-
-    
-    # def delete_web_content_and_metadata(self, sources: List[str], language: Literal["en", "zh"]):
-    #     """
-    #     Delete content data from Chroma and metadata from MySQL for a list of web sources.
-    #     Implements atomic behavior using manual two-phase commit (2PC) pattern.
-        
-    #     :param sources: List of sources (e.g. URLs) of the web pages to be deleted.
-    #     :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
-    #     :return: None
-    #     :raises: RuntimeError if any part of the deletion process fails.
-    #     """
-    #     session = self.mysql_manager.create_session()
-    #     try:
-    #         # Step 1: Get
-    #         # 1-1: MySQL: Get all chunk ids for the given sources
-    #         old_chunk_ids = self.mysql_manager.get_web_page_chunk_ids_by_sources(session, sources)
-    #         # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
-    #         old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
-
-    #         # Step 2: Delete
-    #         # 2-1: MySQL: Delete WebPageChunk by old chunk ids
-    #         self.mysql_manager.delete_web_page_chunks_by_ids(session, old_chunk_ids)
-    #         # 2-2: MySQL: Delete WebPages by sources
-    #         self.mysql_manager.delete_web_pages_by_sources(session, sources)
-    #         # 2-3: Chroma: Delete chunks by old chunk ids
-    #         self.vector_stores[language].delete(ids=old_chunk_ids)
-
-    #         # Step 3: Commit MySQL transaction
-    #         session.commit()
-
-    #         print(f"Successfully deleted data for sources in {language}: {sources}")
-
-    #     except Exception as e:
-    #         # Rollback MySQL transaction if any error occurs
-    #         session.rollback()
-    #         print(f"Error deleting data for sources {sources}: {e}")
-            
-    #         # Rollback Chroma changes if MySQL fails
-    #         try:
-    #             # Restore old chunks to Chroma if they were deleted
-    #             if old_documents:
-    #                 self.vector_stores[language].add_documents(documents=old_documents, ids=old_chunk_ids)
-    #         except Exception as chroma_rollback_error:
-    #             print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
-
-    #         # Raise the error to indicate failure
-    #         raise RuntimeError(f"Data deletion failed for sources {sources}: {e}")
-    #     finally:
-    #         self.mysql_manager.close_session(session)
 
 
     def delete_web_content_and_metadata(self, sources: List[str], language: Literal["en", "zh"]) -> None:
@@ -694,14 +543,13 @@ class DataAgent:
             try:
                 if 'old_documents' in locals() and old_documents:
                     self.vector_stores[language].add_documents(documents=old_documents, ids=old_chunk_ids)
-                    
+
             except Exception as chroma_rollback_error:
                 print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
             
             # Raise the error to notify the caller
             raise RuntimeError(f"Data deletion failed for sources {sources}: {e}")
 
-    # TODO: refactor with context manager
     def _file_source_exists(self, filepath: str) -> bool:
         """
         Check if the file already exists in the FilePage database based on the source filepath.
@@ -709,25 +557,20 @@ class DataAgent:
         :param filepath: The file path to check.
         :return: True if the file exists in the database, otherwise False.
         """
-        # Extract the filename from the file path
-        # filename = os.path.basename(filepath)
+        # Use the context manager for read-only transaction (no commit required)
+        with self.transaction(commit=False) as session:
+            try:
+                # Check if the file exists in the database
+                existing_file = self.mysql_manager.check_file_exists_by_source(session, filepath)
 
-        # Query the database to see if the filename exists in the FilePage table
-        session = self.mysql_manager.create_session()
-        try:
-            # Check if the file exists in the database
-            existing_file = self.mysql_manager.check_file_exists_by_source(session, filepath)
-
-            # Return True if the file exists, False otherwise
-            return existing_file is not None
-        except Exception as e:
-            print(f"Error checking if file exists in the database: {e}")
-            return False
-        finally:
-            self.mysql_manager.close_session(session)
+                # Return True if the file exists, False otherwise
+                return existing_file is not None
+            except Exception as e:
+                print(f"Error checking if file exists in the database: {e}")
+                return False
     
 
-    def insert_file_data(self, docs_metadata: List[dict], chunks: List[Document], language: Literal["en", "zh"]):
+    def insert_file_data(self, docs_metadata: List[dict], chunks: List[Document], language: Literal["en", "zh"]) -> List[dict]:
         """
         Wrapper function to handle atomic insertion of uploaded file content into Chroma (for embeddings) and MySQL (for metadata).
         Implements the manual two-phase commit (2PC) pattern.
@@ -738,40 +581,34 @@ class DataAgent:
         :raises: Exception if any part of the insertion process fails.
         :return: List[dict] chunks_metadata - Metadata of chunks inserted into Chroma.
         """
-        session = self.mysql_manager.create_session()
         try:
-            # Step 1: Insert embeddings into Chroma (vector store)
-            ## chunks_metadata := [{'id': uuid4, 'source': filename, 'page': page num/sheet name}]
-            chunks_metadata = self.vector_stores[language].add_documents(documents=chunks, secondary_key='page')
+            # Use the context manager for transactional database operations
+            with self.transaction(commit=True) as session:
+                # Step 1: Insert embeddings into Chroma (vector store)
+                chunks_metadata = self.vector_stores[language].add_documents(documents=chunks, secondary_key='page')
 
-            # Step 2: Insert metadata into MySQL
-            self.mysql_manager.insert_file_pages(session, docs_metadata)
-            self.mysql_manager.insert_file_page_chunks(session, chunks_metadata)
+                # Step 2: Insert metadata into MySQL
+                self.mysql_manager.insert_file_pages(session, docs_metadata)
+                self.mysql_manager.insert_file_page_chunks(session, chunks_metadata)
 
-            # Step 3: Commit MySQL transaction
-            session.commit()
+                # If both steps succeed, return the chunk metadata
+                return chunks_metadata
 
-            # If both steps succeed, return the chunk metadata
-            return chunks_metadata
-        
         except Exception as e:
-            # Rollback MySQL transaction if any error occurs
-            session.rollback()
             print(f"Error during data insertion into Chroma and MySQL: {e}")
 
             # Rollback Chroma changes if MySQL fails
-            if 'chunks_metadata' in locals():
-                try:
+            try:
+                if 'chunks_metadata' in locals():
                     chunk_ids = [item['id'] for item in chunks_metadata]
                     self.vector_stores[language].delete(ids=chunk_ids)  # Delete embeddings by ids in Chroma
-                except Exception as chroma_rollback_error:
-                    print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
-
-                raise RuntimeError(f"Data insertion failed: {e}")
-        
-        finally:
-            self.mysql_manager.close_session(session)
+            except Exception as chroma_rollback_error:
+                print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
+            
+            # Re-raise the exception to notify the caller
+            raise RuntimeError(f"Data insertion failed: {e}")
     
+
     def get_file_metadata(self, sources: Optional[List[str]] = None) -> List[dict]:
         """
         Get FilePage content (metadata) for uploaded files by their sources if provided; otherwise, return all on source level.
@@ -779,15 +616,14 @@ class DataAgent:
         :param sources: Optional list of sources of the uploaded file pages to be fetched. [{'source': str}]. If None, return all.
         :return: List[dict] - Metadata of the uploaded file pages stored in FilePage table.
         """
-        session = self.mysql_manager.create_session()
-        try:
-            file_metadata = self.mysql_manager.get_files(session, sources)
-            return file_metadata
-        except Exception as e:
-            print(f"Error getting file metadata: {e}")
-            return []
-        finally:
-            self.mysql_manager.close_session(session)
+        # Use the context manager for read-only transaction (no commit required)
+        with self.transaction(commit=False) as session:
+            try:
+                file_metadata = self.mysql_manager.get_files(session, sources)
+                return file_metadata
+            except Exception as e:
+                print(f"Error getting file metadata: {e}")
+                return []
 
 
     def get_file_page_metadata(self, sources_and_pages: Optional[List[dict]] = None) -> List[dict]:
@@ -797,18 +633,18 @@ class DataAgent:
         :param sources_and_pages: Optional list of sources and pages of the uploaded file pages to be fetched. [{'source': str, 'page': str}]. If None, return all.
         :return: List[dict] - Metadata of the uploaded file pages stored in FilePage table.
         """
-        session = self.mysql_manager.create_session()
-        try:
-            # Get metadata for uploaded files by sources and pages if provided; otherwise, return all
-            file_metadata = self.mysql_manager.get_file_pages(session, sources_and_pages)
-            return file_metadata
-        except Exception as e:
-            print(f"Error getting file metadata: {e}")
-            return []
-        finally:
-            self.mysql_manager.close_session(session)
+        # Use the context manager for read-only transaction (no commit required)
+        with self.transaction(commit=False) as session:
+            try:
+                # Get metadata for uploaded files by sources and pages if provided; otherwise, return all
+                file_metadata = self.mysql_manager.get_file_pages(session, sources_and_pages)
+                return file_metadata
+            except Exception as e:
+                print(f"Error getting file page metadata: {e}")
+                return []
     
-    def delete_file_content_and_metadata(self, sources_and_pages: List[dict[str, str]], language: Literal["en", "zh"]):
+    
+    def delete_file_content_and_metadata(self, sources_and_pages: List[dict[str, str]], language: Literal["en", "zh"]) -> None:
         """
         Delete content data from Chroma and metadata from MySQL for a list of uploaded files.
         Implements atomic behavior using manual two-phase commit (2PC) pattern.
@@ -818,53 +654,35 @@ class DataAgent:
         :return: None
         :raises: RuntimeError if any part of the deletion process fails.
         """
-        session = self.mysql_manager.create_session()
         try:
-            # Step 1: Get
-            # 1-1: MySQL: Get all chunk ids for the given sources and pages
-            old_chunk_ids = self.mysql_manager.get_file_page_chunk_ids(session, sources_and_pages)
-            # 1-2: Chroma: Get old documents from Chroma before deletion (for potential rollback)
-            old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
+            # Use the context manager for transactional database operations
+            with self.transaction(commit=True) as session:
+                # Step 1: Get chunk IDs and documents
+                old_chunk_ids = self.mysql_manager.get_file_page_chunk_ids(session, sources_and_pages)
+                old_documents = self.vector_stores[language].get_documents_by_ids(ids=old_chunk_ids)
 
-            # Step 2: Delete
-            # 2-1: MySQL: Delete FilePageChunk by old chunk ids
-            self.mysql_manager.delete_file_page_chunks_by_ids(session, old_chunk_ids)
-            # 2-2: MySQL: Delete FilePage by sources and pages
-            self.mysql_manager.delete_file_pages_by_sources_and_pages(session, sources_and_pages)
-            # 2-3: Chroma: Delete chunks by old chunk ids
-            self.vector_stores[language].delete(ids=old_chunk_ids)
+                # Step 2: Delete from MySQL and Chroma
+                # 2-1: Delete FilePageChunk from MySQL by old chunk IDs
+                self.mysql_manager.delete_file_page_chunks_by_ids(session, old_chunk_ids)
+                # 2-2: Delete FilePage from MySQL by sources and pages
+                self.mysql_manager.delete_file_pages_by_sources_and_pages(session, sources_and_pages)
+                # 2-3: Delete chunks from Chroma by old chunk IDs
+                self.vector_stores[language].delete(ids=old_chunk_ids)
 
-            # Step 3: Commit MySQL transaction
-            session.commit()
+                # Commit handled by context manager if everything succeeds
+                print(f"Successfully deleted data for sources: {sources_and_pages}")
 
-            print(f"Successfully deleted data for sources: {sources_and_pages}")
-        
         except Exception as e:
-            # Rollback MySQL transaction if any error occurs
-            session.rollback()
             print(f"Error deleting data for sources {sources_and_pages}: {e}")
-            
+
             # Rollback Chroma changes if MySQL fails
             try:
-                # Restore old chunks to Chroma if they were deleted
-                if old_documents:
+                if 'old_documents' in locals() and old_documents:
                     self.vector_stores[language].add_documents(documents=old_documents, ids=old_chunk_ids, secondary_key='page')
             except Exception as chroma_rollback_error:
                 print(f"Failed to rollback Chroma insertions: {chroma_rollback_error}")
 
-            # Raise the error to indicate failure
+            # Re-raise the exception to notify the caller
             raise RuntimeError(f"Data deletion failed for sources {sources_and_pages}: {e}")
-        finally:
-            self.mysql_manager.close_session(session)
 
-    def _group_sources_by_key(self, data: List[dict], key: str) -> dict:
-        """
-        Group a list of dictionaries by a given key.
-
-        :param data: List of dictionaries to group. e.g., [{'source': 'example.com', 'language': 'en'}, {'source': 'example1.com', 'language': 'zh'}]
-        :param key: The key to group the sources by. e.g., key='language'
-        """
-        grouped_data = defaultdict(list)
-        for item in data:
-            grouped_data[item[key]].append(item['source'])
-        return dict(grouped_data)
+    

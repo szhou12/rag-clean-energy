@@ -167,6 +167,7 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 - [Run Chroma DB on a local machine and as a Docker container](https://abhishektatachar.medium.com/run-chroma-db-on-a-local-machine-and-as-a-docker-container-a9d4b91d2a97)
 - [Changing the distance method in Chroma](https://github.com/langchain-ai/langchain/discussions/22422)
 - [Chroma System Constraints](https://cookbook.chromadb.dev/core/system_constraints/)
+- [向量数据库Chroma极简教程](https://developer.aliyun.com/article/1517458)
 
 ### Tutorials
 - [Langchain PDF App (GUI) | Create a ChatGPT For Your PDF in Python](https://www.youtube.com/watch?v=wUAUdEw5oxM&t=1030s&ab_channel=AlejandroAO-Software%26Ai)
