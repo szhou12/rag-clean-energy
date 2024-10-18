@@ -160,3 +160,5 @@ dmypy.json
 temp/
 downloads/
 src/db_chroma/
+
+data/

@@ -162,6 +162,7 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 - [Custom Retriever](https://python.langchain.com/v0.1/docs/modules/data_connection/retrievers/custom_retriever/)
 - [BaseRetriever](https://api.python.langchain.com/en/latest/retrievers/langchain_core.retrievers.BaseRetriever.html)
 - [How to do retrieval with contextual compression](https://python.langchain.com/docs/how_to/contextual_compression/)
+- [Return VectorStoreRetriever initialized from this VectorStore](https://python.langchain.com/v0.2/api_reference/chroma/vectorstores/langchain_chroma.vectorstores.Chroma.html#langchain_chroma.vectorstores.Chroma.as_retriever)
 
 ### Chroma
 - [Run Chroma DB on a local machine and as a Docker container](https://abhishektatachar.medium.com/run-chroma-db-on-a-local-machine-and-as-a-docker-container-a9d4b91d2a97)

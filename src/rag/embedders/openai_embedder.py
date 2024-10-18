@@ -1,8 +1,8 @@
-from rag.embedders.base_embedder import BaseEmbeddingModel
-from dotenv import load_dotenv
 import os
-from langchain_openai import OpenAIEmbeddings
 from typing import Optional
+from dotenv import load_dotenv
+from langchain_openai import OpenAIEmbeddings
+from rag.embedders.base_embedder import BaseEmbeddingModel
 
 load_dotenv() # Load OPENAI_api_key as environment variable from .env file
 
