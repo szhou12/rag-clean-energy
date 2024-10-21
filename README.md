@@ -59,6 +59,24 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 2. Best Practice for Data communication between Front-End and Back-End: Use JSON or a list of dictionaries.
 
 
+## MySQL in Docker Container
+### Docker Commands
+1. Run MySQL in a Docker Container
+    - Setting `MYSQL_ROOT_PASSWORD` is MANDATORY!
+```linux
+docker run --name='mysql_container' -e MYSQL_ROOT_PASSWORD=<root-user-password> -d -p 3306:3306 mysql:latest
+```
+2. Interact and Inspect MySQL in a Docker Container
+    - Use `quit` to exit MySQL console. Use `exit` to exit the bash shell.
+```linux
+docker exec -it mysql_container mysql -u root -p
+```
+OR
+```linux
+docker exec -it mysql_container bash
+mysql -u root -p
+```
+
 ## Improvements To-Do
 1. Abstract retrieval chain: to be a class
 2. Llama-index node parser
@@ -138,7 +156,26 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 ## Troubleshooting
 - [ValueError when using UnstructuredMarkdownLoader](https://github.com/langchain-ai/langchain/issues/8556)
 
+## Tutorials
+- [Langchain PDF App (GUI) | Create a ChatGPT For Your PDF in Python](https://www.youtube.com/watch?v=wUAUdEw5oxM&t=1030s&ab_channel=AlejandroAO-Software%26Ai)
+- [Tutorial | Chat with any Website using Python and Langchain (LATEST VERSION)](https://www.youtube.com/watch?v=bupx08ZgSFg&t=1968s&ab_channel=AlejandroAO-Software%26Ai)
+- [Stream LLMs with LangChain + Streamlit | Tutorial](https://www.youtube.com/watch?v=zKGeRWjJlTU&t=240s&ab_channel=AlejandroAO-Software%26Ai)
+- [Differences between Langchain & LlamaIndex](https://stackoverflow.com/questions/76990736/differences-between-langchain-llamaindex)
+
 ## Resources
+### 技术栈目录
+- [Tutorials](#tutorials)
+- [Langchain](#langchain)
+- [Chroma](#chroma)
+- [LLM](#llm)
+- [Embedding Model](#embedding-model)
+- [AliYun](#aliyun)
+- [Nginx](#nginx)
+- [FastAPI](#fastapi)
+- [Docker](#docker)
+- [MySQL](#mysql)
+
+
 ### Langchain
 1. [Document object](https://python.langchain.com/v0.2/docs/concepts/#documents): A Document object in LangChain contains information about some data. It has 2 attributes:
     1. `page_content: str`: The content of this document. Currently is only a string.
@@ -170,11 +207,7 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 - [Chroma System Constraints](https://cookbook.chromadb.dev/core/system_constraints/)
 - [向量数据库Chroma极简教程](https://developer.aliyun.com/article/1517458)
 
-### Tutorials
-- [Langchain PDF App (GUI) | Create a ChatGPT For Your PDF in Python](https://www.youtube.com/watch?v=wUAUdEw5oxM&t=1030s&ab_channel=AlejandroAO-Software%26Ai)
-- [Tutorial | Chat with any Website using Python and Langchain (LATEST VERSION)](https://www.youtube.com/watch?v=bupx08ZgSFg&t=1968s&ab_channel=AlejandroAO-Software%26Ai)
-- [Stream LLMs with LangChain + Streamlit | Tutorial](https://www.youtube.com/watch?v=zKGeRWjJlTU&t=240s&ab_channel=AlejandroAO-Software%26Ai)
-- [Differences between Langchain & LlamaIndex](https://stackoverflow.com/questions/76990736/differences-between-langchain-llamaindex)
+
 
 ### LLM
 - [零一万物Repo](https://github.com/01-ai/Yi?tab=readme-ov-file)
@@ -188,7 +221,6 @@ mysql> SELECT COUNT(*) FROM <table_name>;
 ### AliYun
 - [使用docker和streamlit阿里云服务器部署简单的演示网页](https://jackiexiao.github.io/blog/%E6%8A%80%E6%9C%AF/%E4%BD%BF%E7%94%A8docker%E5%92%8Cstreamlit%E9%98%BF%E9%87%8C%E4%BA%91%E6%9C%8D%E5%8A%A1%E5%99%A8%E9%83%A8%E7%BD%B2%E7%AE%80%E5%8D%95%E7%9A%84%E6%BC%94%E7%A4%BA%E7%BD%91%E9%A1%B5/)
 - [阿里云 部署django全攻略](https://developer.aliyun.com/article/633111)
-- [Docker 部署Streamlit项目 | Streamlit如何部署到云服务器](https://developer.aliyun.com/article/1436718)
 - [怎么把Streamlit部署到阿里云](https://wenku.csdn.net/answer/b2ded916ab19491b9bdc403183039ef5)
 - [网站如何部署到阿里云服务器教程](https://developer.aliyun.com/article/773053)
 
@@ -204,3 +236,10 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 - [What is the purpose of Uvicorn?](https://stackoverflow.com/questions/71435960/what-is-the-purpose-of-uvicorn)
 - [Lifespan Event Documentation](https://fastapi.tiangolo.com/advanced/events/)
+
+### Docker
+- [Docker MySQL Official Documentation](https://hub.docker.com/_/mysql)
+- [Docker 部署Streamlit项目 | Streamlit如何部署到云服务器](https://developer.aliyun.com/article/1436718)
+
+### MySQL
+- [MySQL in Docker](https://medium.com/@maravondra/mysql-in-docker-d7bb1e304473)

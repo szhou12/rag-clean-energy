@@ -1,4 +1,4 @@
-# rag/vector_stores/base_vectore_store.py
+# rag/vector_stores/base_vector_store.py
 
 from abc import ABC, abstractmethod
 

@@ -7,7 +7,7 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from rag.embedders import OpenAIEmbedding, BgeEmbedding
-from rag.vectore_stores import ChromaVectorStore
+from rag.vector_stores import ChromaVectorStore
 from rag.custom_retriever import BilingualRetriever
 
 
@@ -15,7 +15,7 @@ class RAGAgent:
     def __init__(
             self,
             llm: str = "gpt-4o-mini",
-            vector_db: Optional[str] = None, 
+            vector_db_persist_dir: Optional[str] = None, 
             response_template: Optional[str] = None 
     ) -> None:
         """
@@ -26,7 +26,7 @@ class RAGAgent:
             3. Generate a response using the language model
         
         :param llm: (str) - Name of the language model (e.g., "gpt-4o-mini")
-        :param vector_db: (str | None) - Name of Chroma's persistent directory. Used to construct persistent directory. If None, storage is in-memory and emphemeral.
+        :param vector_db_persist_dir: (str | None) - Name of Chroma's persistent directory inside a docker container. Used to construct persistent directory. If None, storage is in-memory and emphemeral.
         :param response_template: (str | None) - Predefined template for formatting responses
         :return: None
         """
@@ -63,12 +63,12 @@ class RAGAgent:
             "en": ChromaVectorStore(
                 collection_name="docs_en",  # English collection
                 embedding_model=self.embedders['bge_en'],
-                persist_db_name=vector_db,
+                persist_directory=vector_db_persist_dir,
             ),
             "zh": ChromaVectorStore(
                 collection_name="docs_zh",  # Chinese collection
                 embedding_model=self.embedders['bge_zh'],
-                persist_db_name=vector_db,
+                persist_directory=vector_db_persist_dir,
             ),
         }
     

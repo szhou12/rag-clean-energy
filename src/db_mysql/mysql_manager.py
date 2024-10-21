@@ -10,11 +10,26 @@ from sqlalchemy.exc import SQLAlchemyError
 from db_mysql.dao import Base, WebPage, WebPageChunk, FilePage, FilePageChunk
 
 class MySQLManager:
-    def __init__(self, host, user, password, port, db_name):
+    def __init__(
+            self, 
+            host: str, 
+            port: int, 
+            user: str, 
+            password: str, 
+            db_name: str,
+    ):
         """
         Initialize the SQLAlchemy engine and session.
+        Interact with MySQL running in a Docker container.
+
         NOTE:
         1. All CRUD operations in MySQLManager are not deemed as atomic operations (i.e. they are part of a larger transaction in DataAgent). Therefore, no commit is made in CRUD here.
+
+        :param host: Host where MySQL is running (use 'localhost' for Docker container on same machine).
+        :param port: Port on which MySQL is running (default is 3306).
+        :param user: MySQL username.
+        :param password: MySQL password.
+        :param db_name: Name of the MySQL database.
         """
 
         self.db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{db_name}"

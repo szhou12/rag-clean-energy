@@ -8,7 +8,7 @@ from db_mysql import MySQLManager
 from rag.parsers import PDFParser, ExcelParser
 from rag.scrapers import WebScraper
 from rag.embedders import OpenAIEmbedding, BgeEmbedding
-from rag.vectore_stores import ChromaVectorStore
+from rag.vector_stores import ChromaVectorStore
 from rag.text_processor import TextProcessor
 
 class DataAgent:

@@ -8,13 +8,24 @@ from db_mysql import MySQLManager
 import time
 
 # Setup test database configuration
+# TEST_DB_CONFIG = {
+#     'host': 'localhost',
+#     'user': 'root',
+#     'password': os.getenv('MYSQL_PASSWORD'),
+#     'port': 3306,
+#     'database': 'test_db'  # test database
+# }
+
+## NOTE: To test MySQL running in docker container, only need to run the container and modify the CONFIG 
+# docker run --name='mysql_container' -e MYSQL_ROOT_PASSWORD=12345 -d -p 3307:3306 mysql:latest
 TEST_DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
-    'password': os.getenv('MYSQL_PASSWORD'),
-    'port': 3306,
+    'password': '12345',
+    'port': 3307,
     'database': 'test_db'  # test database
 }
+
 
 @pytest.fixture(scope="module")
 def mysql_manager():

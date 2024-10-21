@@ -1,40 +1,67 @@
 # project/src/rag/vector_stores/chroma.py
-import os
 from uuid import uuid4
-from typing import Optional, List
+from typing import Optional, List, Dict
 from langchain.schema import Document
 from langchain_chroma import Chroma
 from langchain_community.vectorstores.utils import filter_complex_metadata
-from .base_vectore_store import VectorStore
+from chromadb import HttpClient
+from .base_vector_store import VectorStore
 
 class ChromaVectorStore(VectorStore):
-    def __init__(self, collection_name: str, embedding_model: str, persist_db_name: Optional[str] = None):
+    def __init__(
+            self,
+            collection_name: str,
+            embedding_model: str,
+            host: str = "localhost",
+            port: int = 8000,
+            ssl: bool = False,
+            headers: Optional[Dict[str, str]] = None,
+            persist_directory: Optional[str] = None # Directory inside the container
+    ):
+        """
+        Initialize the ChromaVectorStore class with HttpClient.
+
+        :param collection_name: Name of the collection.
+        :param embedding_model: The embedding model (e.g., OpenAI, BGE).
+        :param chroma_host: Hostname or IP address where the Chroma server is running.
+        :param chroma_port: Port where Chroma server is listening.
+        :param ssl: Boolean to indicate if SSL is used for the connection.
+        :param headers: Optional HTTP headers (metadata for HTTP requests) to pass to the Chroma server.
+        """
         super().__init__(embedding_model)
 
-        self._persist_directory = None
+        self._persist_directory = persist_directory
         self.collection_name = collection_name
 
         # TODO: Re-configure the directory after deploy to cloud
         # Set the hardcoded base directory
-        base_dir = "/Users/shuyuzhou/Documents/github/rag-clean-energy/src"
-        if persist_db_name is not None:
-            # Join the base directory with the persist_db_name to create the full path
-            full_path = os.path.join(base_dir, persist_db_name)
-            # Create the directory if it doesn't exist
-            if not os.path.exists(full_path):
-                os.makedirs(full_path, exist_ok=True)
-            self._persist_directory = full_path
+        # base_dir = "/Users/shuyuzhou/Documents/github/rag-clean-energy"
+        # if persist_directory is not None:
+        #     # Join the base directory with the persist_directory to create the full path
+        #     full_path = os.path.join(base_dir, persist_directory)
+        #     # Create the directory if it doesn't exist
+        #     if not os.path.exists(full_path):
+        #         os.makedirs(full_path, exist_ok=True)
+        #     self._persist_directory = full_path
+
+        # Initialize Chroma HttpClient
+        self.http_client = HttpClient(
+            host=host,
+            port=port,
+            ssl=ssl,
+            headers=headers
+        )
 
         self.vector_store = Chroma(
             collection_name=self.collection_name,
             embedding_function=embedding_model,
             persist_directory=self._persist_directory,
+            client=self.http_client,
         )
 
     def as_retriever(self, **kwargs):
         """
         Wrapper of as_retriever() method of Chroma class.
-        Ref: https://python.langchain.com/v0.2/api_reference/chroma/vectorstores/langchain_chroma.vectorstores.Chroma.html#langchain_chroma.vectorstores.Chroma.as_retriever
         """
         return self.vector_store.as_retriever(**kwargs)
 
