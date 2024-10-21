@@ -15,7 +15,7 @@ class DataAgent:
     def __init__(
             self,
             mysql_config: dict, 
-            vector_db: Optional[str] = None, 
+            vector_db_persist_dir: Optional[str] = None, 
     ) -> None:
         """
         Initialize the DataAgent class.
@@ -25,7 +25,7 @@ class DataAgent:
             3. Store data: CRUD embedding data in Chroma, metadata in MySQL
 
         :param mysql_config: (dict) - Configuration settings for MySQL database connection.
-        :param vector_db: (str | None) - Name of Chroma's persistent directory. Used to construct persistent directory. If None, storage is in-memory and emphemeral.
+        :param vector_db_persist_dir: (str | None) - Name of Chroma's persistent directory. Used to construct persistent directory. If None, storage is in-memory and emphemeral.
         :return: None
         """
         
@@ -47,12 +47,12 @@ class DataAgent:
             "en": ChromaVectorStore(
                 collection_name="docs_en",  # English collection
                 embedding_model=self.embedders['bge_en'],
-                persist_db_name=vector_db,
+                persist_directory=vector_db_persist_dir,
             ),
             "zh": ChromaVectorStore(
                 collection_name="docs_zh",  # Chinese collection
                 embedding_model=self.embedders['bge_zh'],
-                persist_db_name=vector_db,
+                persist_directory=vector_db_persist_dir,
             ),
         }
 
@@ -458,7 +458,7 @@ class DataAgent:
         Get WebPage content (metadata) for web pages by their sources if provided; otherwise, return all.
         
         :param sources: Optional list of sources (e.g. URLs) of the web pages to be fetched. If None, return all.
-        :return: List[dict] - Metadata of the web pages stored in WebPage table.
+        :return: List[dict] - Metadata of the web pages stored in WebPage table. Example: [{'id': 1, 'source': 'https://example.com', 'date': '2024-10-08', 'language': 'en', 'refresh_frequency': 30}, ...]
         """
         # read-only transaction (no commit required)
         with self.transaction(commit=False) as session:
@@ -631,7 +631,7 @@ class DataAgent:
         Get FilePage content (metadata) for uploaded files by their sources and pages if provided; otherwise, return all on (source, page) level.
         
         :param sources_and_pages: Optional list of sources and pages of the uploaded file pages to be fetched. [{'source': str, 'page': str}]. If None, return all.
-        :return: List[dict] - Metadata of the uploaded file pages stored in FilePage table.
+        :return: List[dict] - Metadata of the uploaded file pages stored in FilePage table. Example: [{'id': 1, 'source': 'path/to/file.pdf', 'page': '1', 'date': '2024-10-08', 'language': 'en'}, ...]
         """
         # Use the context manager for read-only transaction (no commit required)
         with self.transaction(commit=False) as session:
@@ -643,6 +643,21 @@ class DataAgent:
                 print(f"Error getting file page metadata: {e}")
                 return []
     
+    def delete_file_data(self, files_by_language: dict):
+        """
+        Delete file data for multiple sources grouped by language.
+        
+        :param files_by_language: Dictionary with language keys ('en', 'zh') and list of file data dictionaries as values.
+                              Example: {'en': [], 'zh': [{'id': 3, 'source': 'path/to/clean_energy.xlsx', 'page': 'intro', ...}]}
+        :return: None
+        """
+        # Process deletion for English sources
+        if files_by_language['en']:
+            self.delete_file_content_and_metadata(files_by_language['en'], language="en")
+
+        # Process deletion for Chinese sources
+        if files_by_language['zh']:
+            self.delete_file_content_and_metadata(files_by_language['zh'], language="zh")
     
     def delete_file_content_and_metadata(self, sources_and_pages: List[dict[str, str]], language: Literal["en", "zh"]) -> None:
         """
