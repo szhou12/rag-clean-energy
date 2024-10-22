@@ -1,5 +1,4 @@
 # src/rag/agent.py
-import os
 from typing import Optional
 from langchain.chains.history_aware_retriever import create_history_aware_retriever
 from langchain.chains.retrieval import create_retrieval_chain
@@ -35,11 +34,11 @@ class RAGAgent:
             self.response_template = response_template
         else:
             self.response_template = """
-                Your answer should be in the format of a report that follows the structure below: 
-                <Title>: give a proper title
-                <Summary>: key points that should be highlighted
-                <Details>: provide details to each key point and enrich the details with numbers and statistics
-                <Conclusion>: give a proper conclusion
+                Your answer should be in the format of a report that follows the structure below: \n
+                Title: give a proper title \n\n
+                Summary: key points that should be highlighted \n\n
+                Details: provide details to each key point and enrich the details with numbers and statistics \n\n
+                Conclusion: give a proper conclusion
                 For any numbers or statistics you provide, please add the source in brackets.
                 At the end of the report, please provide a list of references. 
                 You should respond with the whole report in Chinese.

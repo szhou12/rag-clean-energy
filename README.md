@@ -77,6 +77,13 @@ docker exec -it mysql_container bash
 mysql -u root -p
 ```
 
+## Chroma in Docker Container
+### Docker Commands
+1. Run Chroma in a Docker Container
+```linux
+docker run --name='chroma_container' -d -p 8000:8000 chromadb/chroma
+```
+
 ## Improvements To-Do
 1. Abstract retrieval chain: to be a class
 2. Llama-index node parser

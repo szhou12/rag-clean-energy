@@ -7,7 +7,6 @@ langchain-community
 beautifulsoup4
 langchain-chroma
 chromadb
-llama_index
 pymupdf
 unstructured
 openpyxl

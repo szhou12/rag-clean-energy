@@ -1,7 +1,14 @@
+import sys
+import os
 import streamlit as st
 from langchain.schema import HumanMessage, AIMessage
 from dotenv import load_dotenv
+
+# Add the src/ directory to the Python path in runtime
+# sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
 from rag import RAGAgent
+
 
 load_dotenv()
 

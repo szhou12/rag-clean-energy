@@ -5,10 +5,9 @@ from dotenv import load_dotenv
 from rag import DataAgent
 from utils import group_files_by_source, reformat_del_data, clean_web_data
 
-
-
 load_dotenv()
 
+# TODO: Modify if running MySQL in docker container
 mysql_config = {
         'user': 'root',
         'host': 'localhost',

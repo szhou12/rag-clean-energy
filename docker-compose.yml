@@ -1,0 +1,60 @@
+version: '3'
+services:
+  mysql:
+    container_name: mysql_container  # Set the container name to 'mysql_container'
+    image: mysql:latest              # Use the MySQL image, latest version
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}   # Set the root user password. Load from .env
+    ports:
+      - "3307:3306"                  # <host port>:<container port>
+    networks:
+      - rag-network                  # Connect to a custom network (optional, but useful)
+    volumes:
+      - mysql_data:/var/lib/mysql     # <named volume to persist data in host machine>:<data storage path inside container>
+
+  chroma:
+    container_name: chroma_container
+    image: chromadb/chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/data/chroma
+    networks:
+      - rag-network
+
+  app_client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONPATH=/app/src
+    command: ["streamlit", "run", "/app/webapp/app_client.py"]
+    depends_on:
+      - mysql
+      - chroma
+    networks:
+      - rag-network
+
+  app_staff:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8502:8502"
+    environment:
+      - PYTHONPATH=/app/src
+    command: ["streamlit", "run", "/app/webapp/app_staff.py"]
+    depends_on:
+      - mysql
+      - chroma
+    networks:
+      - rag-network
+
+volumes: # defines named volumes
+  mysql_data:
+  chroma_data:
+
+networks:
+  rag-network:
