@@ -1,4 +1,3 @@
-version: '3'
 services:
   mysql:
     container_name: mysql_container  # Set the container name to 'mysql_container'
@@ -30,7 +29,8 @@ services:
       - "8501:8501"
     environment:
       - PYTHONPATH=/app/src
-    command: ["streamlit", "run", "/app/webapp/app_client.py"]
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    command: ["streamlit", "run", "/app/webapp/app_client.py", "--server.port=8501"]
     depends_on:
       - mysql
       - chroma
@@ -45,7 +45,10 @@ services:
       - "8502:8502"
     environment:
       - PYTHONPATH=/app/src
-    command: ["streamlit", "run", "/app/webapp/app_staff.py"]
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - TOKENIZERS_PARALLELISM=${TOKENIZERS_PARALLELISM}
+    command: ["streamlit", "run", "/app/webapp/app_staff.py", "--server.port=8502"]
     depends_on:
       - mysql
       - chroma

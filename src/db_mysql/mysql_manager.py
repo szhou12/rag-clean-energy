@@ -1,6 +1,7 @@
 # src/db_mysql/mysql_manager.py
 import hashlib
 import inspect
+import logging
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import create_engine, insert, select, delete, update, tuple_, func
@@ -25,7 +26,7 @@ class MySQLManager:
         NOTE:
         1. All CRUD operations in MySQLManager are not deemed as atomic operations (i.e. they are part of a larger transaction in DataAgent). Therefore, no commit is made in CRUD here.
 
-        :param host: Host where MySQL is running (use 'localhost' for Docker container on same machine).
+        :param host: Host where MySQL is running.
         :param port: Port on which MySQL is running (default is 3306).
         :param user: MySQL username.
         :param password: MySQL password.
@@ -39,10 +40,15 @@ class MySQLManager:
             if not database_exists(self.db_uri):
                 create_database(self.db_uri)
             self.engine = create_engine(self.db_uri)  # self.engine := DB connector
-            self.Session = sessionmaker(bind=self.engine)
+            logging.info(f"Database engine created: {self.db_uri}")
+
+            self.Session = sessionmaker(bind=self.engine) # <-- Create the session factory here
             Base.metadata.create_all(self.engine) # Create tables if they do not exist
+            logging.info("Session factory and tables initialized.")
+            
         except SQLAlchemyError as e:
-            print(f"Error initializing database: {e}")
+            logging.error(f"Error initializing database: {e}")
+            raise
 
     def create_session(self):
         """Create a new session."""

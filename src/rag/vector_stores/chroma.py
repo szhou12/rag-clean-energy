@@ -12,7 +12,7 @@ class ChromaVectorStore(VectorStore):
             self,
             collection_name: str,
             embedding_model: str,
-            host: str = "localhost",
+            host: str = "chroma_container",
             port: int = 8000,
             ssl: bool = False,
             headers: Optional[Dict[str, str]] = None,

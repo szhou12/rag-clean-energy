@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from rag import RAGAgent
 
 
-load_dotenv()
+# load_dotenv()
 
 rag_agent = RAGAgent(vector_db_persist_dir="/data/chroma")
 

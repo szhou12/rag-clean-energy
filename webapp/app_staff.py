@@ -7,12 +7,13 @@ from utils import group_files_by_source, reformat_del_data, clean_web_data
 
 load_dotenv()
 
-# TODO: Modify if running MySQL in docker container
+
+# NOTE: client_staff is also running in a docker container. Inside Docker, the containers use their internal ports to communicate
 mysql_config = {
         'user': 'root',
-        'host': 'localhost',
-        'port': 3306,
-        'password': os.getenv('MYSQL_PASSWORD'),
+        'host': 'mysql_container', # Docker service name of the MySQL container
+        'port': 3306,               # Use the internal MySQL port inside the container
+        'password': os.getenv('MYSQL_ROOT_PASSWORD'),
         'db_name': 'rmi_test'
     }
 
@@ -135,7 +136,8 @@ with tab2:
 
         try:
             data_agent.process_file(file_path)
-            st.success(f"File uploaded and processed successfully!")
+            st.success(f"File uploaded and processed successfully! Refresh to see the change!")
+
         except Exception as e:
             st.error(f"Error processing file: {e}")
 

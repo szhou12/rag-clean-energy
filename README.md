@@ -245,8 +245,18 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 - [Lifespan Event Documentation](https://fastapi.tiangolo.com/advanced/events/)
 
 ### Docker
+```linux
+# Run docker compose to start all services
+docker compose up --build
+
+# Stop all services and Remove containers and their volumes
+docker compose down -v
+```
+
+
 - [Docker MySQL Official Documentation](https://hub.docker.com/_/mysql)
 - [Docker 部署Streamlit项目 | Streamlit如何部署到云服务器](https://developer.aliyun.com/article/1436718)
+- [How to Install Docker on Ubuntu 20](https://www.alibabacloud.com/blog/how-to-install-docker-on-ubuntu-20_599630)
 
 ### MySQL
 - [MySQL in Docker](https://medium.com/@maravondra/mysql-in-docker-d7bb1e304473)

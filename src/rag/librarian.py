@@ -47,11 +47,13 @@ class DataAgent:
             "en": ChromaVectorStore(
                 collection_name="docs_en",  # English collection
                 embedding_model=self.embedders['bge_en'],
+                # embedding_model=self.embedders['openai'],
                 persist_directory=vector_db_persist_dir,
             ),
             "zh": ChromaVectorStore(
                 collection_name="docs_zh",  # Chinese collection
                 embedding_model=self.embedders['bge_zh'],
+                # embedding_model=self.embedders['openai'],
                 persist_directory=vector_db_persist_dir,
             ),
         }
