@@ -260,3 +260,7 @@ docker compose down -v
 
 ### MySQL
 - [MySQL in Docker](https://medium.com/@maravondra/mysql-in-docker-d7bb1e304473)
+
+### AWS
+- [How to Open Ports in AWS EC2 Server](https://medium.com/@chiemelaumeh1/how-to-open-ports-inaws-ec2-server-68e576c641d6)
+- [Permission denied (publickey) when SSH Access to Amazon EC2 instance](https://stackoverflow.com/questions/18551556/permission-denied-publickey-when-ssh-access-to-amazon-ec2-instance)
