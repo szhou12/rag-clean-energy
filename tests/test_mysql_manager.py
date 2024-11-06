@@ -2,7 +2,6 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy_utils import database_exists, create_database, drop_database
 from datetime import datetime, timedelta
-import os
 from db_mysql.dao import Base, WebPage, WebPageChunk, FilePage, FilePageChunk
 from db_mysql import MySQLManager
 import time
@@ -621,3 +620,32 @@ def test_delete_file_page_chunks_by_ids(mysql_manager, session):
     # Verify that the chunks were deleted
     remaining_chunks = session.scalars(sql_stmt).all()
     assert len(remaining_chunks) == 0
+
+def test_update_web_pages_refresh_frequency(mysql_manager, session):
+    # Step 1: Prepare sample data
+    # Insert multiple test web pages with different languages
+    pages_metadata = [
+        {"source": "https://example.com/page1", "language": "en"},
+        {"source": "https://example.com/page2", "language": "zh"},
+    ]
+    for page in pages_metadata:
+        mysql_manager.insert_web_page(session, page["source"], language=page["language"])
+
+    # Step 2: Prepare update data (changing the refresh frequency)
+    update_data = [
+        {'source': 'https://example.com/page1', 'refresh_frequency': 7},
+        {'source': 'https://example.com/page2', 'refresh_frequency': 20}
+    ]
+
+    # Step 3: Call the update method
+    mysql_manager.update_web_pages_refresh_frequency(session, sources_and_freqs=update_data)
+
+    # Step 4: Retrieve updated records to verify changes
+    updated_records = session.query(WebPage).filter(WebPage.source.in_([item['source'] for item in update_data])).all()
+    
+    # Convert the results to a dictionary for easier verification
+    results = {record.source: record.refresh_frequency for record in updated_records}
+    
+    # Verify that refresh frequencies have been updated correctly
+    assert results['https://example.com/page1'] == 7
+    assert results['https://example.com/page2'] == 20

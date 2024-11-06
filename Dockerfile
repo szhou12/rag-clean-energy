@@ -13,8 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Step 5: Copy the rest of the application code into the container
 COPY src /app/src
 COPY webapp /app/webapp
-COPY temp /app/temp
-COPY downloads /app/downloads
+
+# Create directories for /temp and /downloads
+RUN mkdir -p /app/temp /app/downloads
 
 # Step 6: Set the PYTHONPATH environment variable to include /app/src
 # This allows imports from the /src directory in /webapp.

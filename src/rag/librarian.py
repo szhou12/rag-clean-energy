@@ -454,6 +454,24 @@ class DataAgent:
             
             # Re-raise the exception to notify the caller
             raise RuntimeError(f"Data update failed for source {source}: {e}")
+        
+    def update_web_data_refresh_frequency(self, metadata: List[dict]):
+        """
+        Update the refresh frequency for specified scraped web pages.
+
+        :param metadata: List of dictionaries received from Front-End, each containing 'source' and 'refresh_frequency'.
+                                    Example: [{'source': 'https://rmi.org', 'refresh_frequency': 7},
+                                              {'source': 'https://iea.org', 'refresh_frequency': 30}]
+        :return: None
+        """
+        try:
+            with self.transaction(commit=True) as session:
+                self.mysql_manager.update_web_pages_refresh_frequency(session, sources_and_freqs=metadata)
+                print(f"Successfully updated refresh frequency for web pages: {metadata}")
+        except Exception as e:
+            print(f"Error updating refresh frequency for web pages: {e.__class__.__name__}: {e}")
+
+
 
     def get_web_page_metadata(self, sources: Optional[List[str]] = None) -> List[dict]:
         """
@@ -462,7 +480,7 @@ class DataAgent:
         :param sources: Optional list of sources (e.g. URLs) of the web pages to be fetched. If None, return all.
         :return: List[dict] - Metadata of the web pages stored in WebPage table. Example: [{'id': 1, 'source': 'https://example.com', 'date': '2024-10-08', 'language': 'en', 'refresh_frequency': 30}, ...]
         """
-        # read-only transaction (no commit required)
+        # read-only transaction (no commit required) outside try-except block
         with self.transaction(commit=False) as session:
             try:
                 web_pages = self.mysql_manager.get_web_pages(session, sources)

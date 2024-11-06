@@ -4,7 +4,7 @@ import inspect
 import logging
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import create_engine, insert, select, delete, update, tuple_, func
+from sqlalchemy import create_engine, insert, select, delete, update, tuple_, func, case
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -175,6 +175,41 @@ class MySQLManager:
         except SQLAlchemyError as e:
             session.rollback()
             raise RuntimeError(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error batch insert WebPageChunk: {e}")
+        
+    def update_web_pages_refresh_frequency(self, session: Session, sources_and_freqs: list[dict]):
+        """
+        Update the 'refresh_frequency' field of the WebPage objects corresponding to the given URLs.
+
+        :param session: SQLAlchemy session to interact with the database.
+        :param sources_and_freqs: List of dictionaries containing 'source' and 'refresh_frequency'.
+                                Example: [{'source': 'https://rmi.org', 'refresh_frequency': 7},
+                                          {'source': 'https://iea.org', 'refresh_frequency': 30}]
+        """
+        try:
+            if not sources_and_freqs:
+                print("No sources provided for updating.")
+                return
+            # Build a dictionary mapping each source to its new refresh frequency
+            source_freq_map = {item['source']: item['refresh_frequency'] for item in sources_and_freqs if item.get('source') and item.get('refresh_frequency') is not None}
+            
+            # Construct a CASE statement to apply different values for each source
+            case_stmt = case(source_freq_map, value=WebPage.source)
+            
+            # Perform a bulk update
+            session.execute(
+                update(WebPage).
+                where(WebPage.source.in_(source_freq_map.keys())).
+                values(refresh_frequency=case_stmt)
+            )
+
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Bulk updated 'refresh_frequency' for {len(sources_and_freqs)} WebPages.")
+
+        except SQLAlchemyError as e:
+            session.rollback()  # Rollback the transaction in case of error
+            print(f"[{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}] Error updating WebPage refresh frequencies: {e}")
+            raise RuntimeError(f"Failed to update WebPage refresh frequencies: {e}")
+            
+        
         
 
     def update_web_pages_date(self, session: Session, urls: list[str]):

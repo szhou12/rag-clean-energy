@@ -257,6 +257,7 @@ docker compose down -v
 - [Docker MySQL Official Documentation](https://hub.docker.com/_/mysql)
 - [Docker 部署Streamlit项目 | Streamlit如何部署到云服务器](https://developer.aliyun.com/article/1436718)
 - [How to Install Docker on Ubuntu 20](https://www.alibabacloud.com/blog/how-to-install-docker-on-ubuntu-20_599630)
+- [docker-compose up vs docker-compose up --build vs docker-compose build --no-cache](https://stackoverflow.com/questions/39988844/docker-compose-up-vs-docker-compose-up-build-vs-docker-compose-build-no-cach)
 
 ### MySQL
 - [MySQL in Docker](https://medium.com/@maravondra/mysql-in-docker-d7bb1e304473)
@@ -264,3 +265,42 @@ docker compose down -v
 ### AWS
 - [How to Open Ports in AWS EC2 Server](https://medium.com/@chiemelaumeh1/how-to-open-ports-inaws-ec2-server-68e576c641d6)
 - [Permission denied (publickey) when SSH Access to Amazon EC2 instance](https://stackoverflow.com/questions/18551556/permission-denied-publickey-when-ssh-access-to-amazon-ec2-instance)
+- [Can't SSH into AWS EC2 instance](https://stackoverflow.com/questions/55212032/cant-ssh-into-aws-ec2-instance)
+
+```linux
+chmod 400 /path/to/your/key.pem
+ls -l /path/to/your-key.pem 
+# it should have this mode: -r--------
+
+# SSH into EC2 instance
+sudo apt update
+sudo apt upgrade -y
+
+sudo apt install docker.io -y
+sudo systemctl start docker
+sudo systemctl enable docker
+
+sudo apt install docker-compose -y
+
+git clone https://github.com/szhou12/rag-clean-energy.git
+
+cd rag-clean-energy
+
+add .env file, temp folder, downloads folder
+
+sudo docker-compose up --build
+
+# inspect disk usage
+df -h 
+
+http://<your-ec2-public-ip>:8501   # For app_client
+http://<your-ec2-public-ip>:8502   # For app_staff
+
+54.174.213.130
+
+http://54.174.213.130:8501
+
+ssh -v -i /Users/shuyuzhou/Documents/dev_keys/rag-rmi-v2-ec2-key.pem ubuntu@54.174.213.130
+```
+1. 选择配置: 2CPU, 4G Memory, 30G Disk
+2. 添加 暴露端口 8501, 8502, 3306, 8000

@@ -85,37 +85,67 @@ with tab1:
                 "Delete", help="Select to delete", default=False
             ),
             "source": "Source (URL)",  # Rename 'source' column for display
+            "date": "Date",
+            "language": "Language",
             "refresh_frequency": st.column_config.NumberColumn(
-                "Refresh Frequency", min_value=0, help="Frequency in days"
+                "Refresh Frequency", min_value=1, help="Frequency in days"
             )
         },
         disabled=["source", "date", "language"],  # Disable editing for these columns
         key="web_data_editor",
     )
 
-    # Button to submit changes (deletion of selected rows)
-    if st.button("Submit Changes to Web Pages"):
-        # Collect rows marked for deletion
-        rows_to_delete = edited_web_df[edited_web_df['Delete']]
+    # Create columns to arrange buttons side by side
+    col1, col2, _ = st.columns([1, 1, 8])
 
-        if not rows_to_delete.empty:
-            # Extract sources and languages for deletion
-            sources_to_delete = rows_to_delete[['source', 'language']].to_dict(orient='records')
+    # Update Button: Handle frequency updates
+    with col1:
+        if st.button("Update"):
+            # Collect rows with changed refresh frequency
+            changed_frequency_rows = edited_web_df[edited_web_df['refresh_frequency'] != st.session_state.web_df['refresh_frequency']]
 
-            try:
-                with st.spinner("Deleting selected web pages..."):
-                    # Delete the selected data
-                    data_agent.delete_web_data(metadata=sources_to_delete)
-                    st.success("Selected web pages have been deleted.")
+            if not changed_frequency_rows.empty:
+                # Prepare data for updating refresh frequency
+                sources_to_update_freq = changed_frequency_rows[['source', 'refresh_frequency']].to_dict(orient='records')
 
-                # Update the DataFrame in session state
-                st.session_state.web_df = clean_web_data(data_agent.get_web_page_metadata())
-                st.rerun()  # Re-run to reflect changes
+                try:
+                    with st.spinner("Updating refresh frequency..."):
+                        # Update the refresh frequency in the data agent
+                        data_agent.update_web_data_refresh_frequency(sources_to_update_freq)
+                        st.success("Refresh frequency has been updated.")
 
-            except Exception as e:
-                st.error(f"An error occurred during deletion: {e}")
-        else:
-            st.warning("No rows selected for deletion.")
+                    # Update the DataFrame in session state to reflect changes
+                    st.session_state.web_df = clean_web_data(data_agent.get_web_page_metadata())
+                    st.rerun()  # Re-run to reflect changes
+
+                except Exception as e:
+                    st.error(f"An error occurred during frequency update: {e}")
+            else:
+                st.warning("No frequency changes detected.")
+    with col2:
+        # Delete Button: Handle deletion of selected rows
+        if st.button("Delete", key="delete_button", type="primary"):
+            # Collect rows marked for deletion
+            rows_to_delete = edited_web_df[edited_web_df['Delete']]
+
+            if not rows_to_delete.empty:
+                # Extract sources and languages for deletion
+                sources_to_delete = rows_to_delete[['source', 'language']].to_dict(orient='records')
+
+                try:
+                    with st.spinner("Deleting selected web pages..."):
+                        # Delete the selected data
+                        data_agent.delete_web_data(metadata=sources_to_delete)
+                        st.success("Selected web pages have been deleted.")
+
+                    # Update the DataFrame in session state to reflect changes
+                    st.session_state.web_df = clean_web_data(data_agent.get_web_page_metadata())
+                    st.rerun()  # Re-run to reflect changes
+
+                except Exception as e:
+                    st.error(f"An error occurred during deletion: {e}")
+            else:
+                st.warning("No rows selected for deletion.")
 
 
 
@@ -123,6 +153,9 @@ with tab1:
 with tab2:
     ############# File upload section #############
     st.title("File Uploading")
+
+    # Language selection
+    language = st.radio("Select the language of the file:", options=["en", "zh"], index=0)
 
     uploaded_file = st.file_uploader("Upload a File", type=["pdf", "xlsx", "xls"])
     if uploaded_file:
@@ -135,7 +168,7 @@ with tab2:
             st.write(f"Saved to filepath: {file_path}")
 
         try:
-            data_agent.process_file(file_path)
+            data_agent.process_file(file_path, language=language)
             st.success(f"File uploaded and processed successfully! Refresh to see the change!")
 
         except Exception as e:
