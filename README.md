@@ -251,6 +251,13 @@ docker compose up --build
 
 # Stop all services and Remove containers and their volumes
 docker compose down -v
+
+# Update App - Rebuild and Restart Services with Docker Compose
+git pull origin main
+docker compose up --build --no-deps app_client app_staff
+
+# Clean up old images (Optional)
+docker image prune -f  # Remove unused images
 ```
 
 
@@ -277,7 +284,11 @@ sudo apt update
 sudo apt upgrade -y
 
 sudo apt install docker.io -y
+
+# configure your system to start the Docker service that runs in the background
 sudo systemctl start docker
+
+# configure your system to start the Docker daemon automatically every time your machine boots up
 sudo systemctl enable docker
 
 sudo apt install docker-compose -y
@@ -290,6 +301,8 @@ add .env file, temp folder, downloads folder
 
 sudo docker-compose up --build
 
+sudo docker-compose down -v
+
 # inspect disk usage
 df -h 
 
@@ -299,8 +312,11 @@ http://<your-ec2-public-ip>:8502   # For app_staff
 54.174.213.130
 
 http://54.174.213.130:8501
+http://54.174.213.130:8502
 
 ssh -v -i /Users/shuyuzhou/Documents/dev_keys/rag-rmi-v2-ec2-key.pem ubuntu@54.174.213.130
+
+# AWS EC2 instance: rag-rmi-v2
 ```
 1. 选择配置: 2CPU, 4G Memory, 30G Disk
 2. 添加 暴露端口 8501, 8502, 3306, 8000

@@ -1,7 +1,7 @@
 # src/db_mysql/dao/models.py
 
 from typing import Optional, Literal
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, ForeignKeyConstraint, UniqueConstraint
+from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, ForeignKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, declarative_base
 import hashlib
 from datetime import datetime, timedelta
@@ -92,6 +92,7 @@ class FilePage(Base):
     page = Column(String(255), nullable=False)    # PDF page number or Excel sheet name
     date = Column(DateTime, nullable=False, default=datetime.now)  # The date when the file page was parsed
     language = Column(String(10), nullable=False, default='en')    # Language of the content
+    file_size = Column(Float, nullable=False)     # File size in MB
 
     # Define a unique constraint on (source, page)
     __table_args__ = (
@@ -101,21 +102,23 @@ class FilePage(Base):
     # Define relationship with/Create a link to FilePageChunk
     chunks = relationship("FilePageChunk", back_populates="file_page")
 
-    def __init__(self, source: str, page: str, language: Literal["en", "zh"] = "en"):
+    def __init__(self, source: str, page: str, file_size: float, language: Literal["en", "zh"] = "en"):
         """
         Initialize a FilePage instance.
         
         :param source: File name of the uploaded file.
         :param page: PDF page number or Excel sheet name.
+        :param file_size: Size of the entire file in MB.
         :param language: The language of the file content (e.g., 'en', 'zh'). Default is 'en'.
         """
         self.source = source
         self.page = page
         self.language = language
         self.date = datetime.now()
+        self.file_size = file_size
 
     def __repr__(self):
-        return f'<FilePage(id={self.id}, source={self.source}, page={self.page}, language={self.language})>'
+        return f'<FilePage(id={self.id}, source={self.source}, page={self.page}, language={self.language}, size={self.file_size})>'
     
     def days_since_added(self):
         """

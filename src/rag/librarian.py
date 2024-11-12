@@ -57,6 +57,17 @@ class DataAgent:
                 persist_directory=vector_db_persist_dir,
             ),
         }
+    
+    # TODO: delete after testing
+    def chroma_storage_testing(self):
+        """
+        Test the connection to Chroma and storage functionality.
+        """
+        en_result = self.vector_stores['en'].storage_test()
+        zh_result = self.vector_stores['zh'].storage_test()
+        res = f"English: {en_result}, Chinese: {zh_result}"
+        return res
+
 
     def close(self):
         """
@@ -104,11 +115,12 @@ class DataAgent:
         finally:
             self.mysql_manager.close_session(session)
 
-    def process_file(self, filepath: str, language: Literal["en", "zh"] = "en"):
+    def process_file(self, filepath: str, file_size: float, language: Literal["en", "zh"] = "en"):
         """
         Process an uploaded file: parse file content, embed, and save to vector store.
         
         :param filepath: (str) The file path. Currently support: PDF (multiple pages), Excel (multiple sheets)
+        :param file_size: (float) The size of the uploaded file in MB.
         :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
         :return: None
         """
@@ -119,7 +131,8 @@ class DataAgent:
                 return
 
             # Step 2: Parse the file based on the file extension
-            docs, metadata = self._parse_file(filepath, language)
+            ## metadata := [{'source': 'example.pdf', 'page': 1, 'language': 'zh', 'file_size': 2.50}, ...]
+            docs, metadata = self._parse_file(filepath, file_size, language)
 
             # Step 3: Clean content before splitting
             self.text_processor.clean_page_content(docs)
@@ -211,11 +224,12 @@ class DataAgent:
         # Reset self.scraped_urls in WebScraper instance
         self.scraper.fetch_active_urls_from_db()
 
-    def _parse_file(self, filepath: str, language: Literal["en", "zh"] = "en") -> Tuple[List[Document], dict]:
+    def _parse_file(self, filepath: str, file_size: float, language: Literal["en", "zh"] = "en") -> Tuple[List[Document], List[dict]]:
         """
         Process an uploaded file: parse file content, embed, and save to vector store.
         
         :param filepath: (str) The file path. Currently supports: PDF (multiple pages), Excel (multiple sheets)
+        :param file_size: (float) The size of the entire uploaded file in MB.
         :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
         :return: A tuple containing a list of Langchain Document objects and metadata.
         """
@@ -238,9 +252,11 @@ class DataAgent:
 
             # Further processing of docs and metadata
             # Step 1: Augment metadata with language and ensure 'page' is a string
+            # each item is a dictionary
             for item in metadata:
                 item["language"] = language
                 item["page"] = str(item["page"])  # Convert page number to string
+                item["file_size"] = file_size
             
             # Step 2: Additional processing for Excel files
             if file_ext in ['.xls', '.xlsx']:
@@ -595,7 +611,7 @@ class DataAgent:
         Wrapper function to handle atomic insertion of uploaded file content into Chroma (for embeddings) and MySQL (for metadata).
         Implements the manual two-phase commit (2PC) pattern.
         
-        :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL. {"source": filename, "page": page num/sheet name, "language": en/zh}
+        :param docs_metadata: List[dict] - Metadata of documents to be inserted into MySQL. [{"source": filename, "page": page num/sheet name, "language": en/zh, "file_size": 7.1}, {...}]
         :param chunks: List[Document] - Chunks of document text to be inserted into Chroma.
         :param language: The language of the inserted data content. Only "en" (English) or "zh" (Chinese) are accepted.
         :raises: Exception if any part of the insertion process fails.
@@ -634,7 +650,7 @@ class DataAgent:
         Get FilePage content (metadata) for uploaded files by their sources if provided; otherwise, return all on source level.
         
         :param sources: Optional list of sources of the uploaded file pages to be fetched. [{'source': str}]. If None, return all.
-        :return: List[dict] - Metadata of the uploaded file pages stored in FilePage table.
+        :return: List[dict] - Metadata of the uploaded file pages stored in FilePage table. Example: [{'source': 'example.pdf', 'date': '2024-10-08', 'language': 'en', 'file_size': 7.10, 'total_records': 3}, {...}]
         """
         # Use the context manager for read-only transaction (no commit required)
         with self.transaction(commit=False) as session:

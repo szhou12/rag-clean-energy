@@ -162,14 +162,18 @@ with tab2:
         temp_dir = os.path.join(os.path.dirname(__file__), '..', 'temp')
         file_path = os.path.join(temp_dir, uploaded_file.name)
 
+        file_size_bytes = len(uploaded_file.getvalue())
+        file_size_mb = round(file_size_bytes / (1024 * 1024), 2) # file size in MB
+
         if not os.path.exists(file_path):
             with open(file_path, "wb") as f:
                 f.write(uploaded_file.getvalue())
             st.write(f"Saved to filepath: {file_path}")
 
         try:
-            data_agent.process_file(file_path, language=language)
+            data_agent.process_file(file_path, file_size_mb, language=language)
             st.success(f"File uploaded and processed successfully! Refresh to see the change!")
+            # TODO: after success, delete the file stored in /temp
 
         except Exception as e:
             st.error(f"Error processing file: {e}")
@@ -203,10 +207,14 @@ with tab2:
             "source": "File Name",  # Rename 'source' column
             "total_pages": "Total Pages/Sheets",
             "date": "Upload Date",
-            "language": "Language"
+            "language": "Language",
+            "file_size": "File Size (MB)"
         },
-        disabled=["source", "total_pages", "date", "language"],  # Disable editing for these columns
+        disabled=["source", "total_pages", "date", "language", "file_size"],  # Disable editing for these columns
     )
+
+    # TODO: delete after testing
+    st.write(data_agent.chroma_storage_testing())
 
     # Handle deletions
     if st.button("Submit Changes"):

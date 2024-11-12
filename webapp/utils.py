@@ -21,7 +21,7 @@ def group_files_by_source(file_data: list[dict]):
     """
     Group file data by their source and return file-level information without individual pages.
 
-    :param file_data: List of dictionaries. Example: [{'id': 1, 'source': 'path1/to/manufacturing.pdf', 'page': '1', 'date': '2024-10-08', 'language': 'en'}, ...]
+    :param file_data: List of dictionaries. Example: [{'id': 1, 'source': 'path1/to/manufacturing.pdf', 'page': '1', 'date': '2024-10-08', 'language': 'en', 'file_size': 7.10}, {...}]
     :return: List of dictionaries, each representing file-level information.
     """
 
@@ -39,6 +39,7 @@ def group_files_by_source(file_data: list[dict]):
             'total_pages': len(pages),
             'date': pages[0]['date'],  # Assuming all pages have the same date
             'language': pages[0]['language'],  # Assuming all pages have the same language
+            'file_size': pages[0]['file_size'],  # Assuming all pages have the same file size (i.e. the entire file size)
             'Delete': False  # Add a Delete column for the table
         })
     

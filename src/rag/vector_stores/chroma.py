@@ -59,6 +59,15 @@ class ChromaVectorStore(VectorStore):
             client=self.http_client,
         )
 
+    # TODO: delete after testing
+    def storage_test(self):
+        collection_local = self.http_client.get_collection(name=self.collection_name)
+        if "en" in self.collection_name:
+            result = collection_local.query(query_texts=["China"], n_results=3)
+        else:
+            result = collection_local.query(query_texts=["电池"], n_results=3)
+        return result
+
     def as_retriever(self, **kwargs):
         """
         Wrapper of as_retriever() method of Chroma class.

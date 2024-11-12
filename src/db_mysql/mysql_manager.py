@@ -463,7 +463,7 @@ class MySQLManager:
         Insert multiple new file pages in batch.
 
         :param session: SQLAlchemy session to interact with the database.
-        :param document_info_list: List[dict] [{'source': filename, 'page': page number/sheet name, 'language': lang}]
+        :param document_info_list: List[dict] [{'source': filename, 'page': page number/sheet name, 'language': lang, 'file_size': size}, {...}]
         """
         try:
             for document in document_info_list:
@@ -555,7 +555,7 @@ class MySQLManager:
                         Example: [{'source': 'one.pdf'}, {'source': 'two.pdf'}, ...]
         :return: List of dictionaries containing unique sources with all fields except 'page',
                 along with a count of how many records exist for each source.
-                Example: [{'source': 'one.pdf', 'date': '2024-10-08', 'language': 'en', 'total_records': 3}, ...]
+                Example: [{'source': 'example.pdf', 'date': '2024-10-08', 'language': 'en', 'file_size': 7.10, 'total_records': 3}, {...}]
         """
         try:
              # Create a subquery to get the first record (earliest date) for each source
@@ -564,6 +564,7 @@ class MySQLManager:
                     FilePage.source,
                     FilePage.date,
                     FilePage.language,
+                    FilePage.file_size,
                     func.row_number().over(partition_by=FilePage.source, order_by=FilePage.date).label('rn')
                 )
                 .subquery()
@@ -575,12 +576,13 @@ class MySQLManager:
                     subquery.c.source,
                     subquery.c.date,
                     subquery.c.language,
+                    subquery.c.file_size,
                     func.count(FilePage.source).label('total_records')
                 )
                 .select_from(subquery)
                 .join(FilePage, FilePage.source == subquery.c.source)
                 .where(subquery.c.rn == 1)
-                .group_by(subquery.c.source, subquery.c.date, subquery.c.language)
+                .group_by(subquery.c.source, subquery.c.date, subquery.c.language, subquery.c.file_size)
             )
 
             # Filter by provided sources if not empty list
@@ -597,6 +599,7 @@ class MySQLManager:
                     'source': source.source,
                     'date': source.date.strftime('%Y-%m-%d %H:%M:%S'),
                     'language': source.language,
+                    'file_size': round(source.file_size, 2),
                     'total_records': source.total_records
                 }
                 for source in unique_sources
@@ -618,7 +621,7 @@ class MySQLManager:
         :param metadata: Optional list of document metadata dictionaries, containing at least a 'source' and 'page' to match.
                         Example: [{'source': 'path/to/one.pdf', 'page': '1', ...}, {'source': 'path/to/one.pdf', 'page': '2', ...}]
         :return: List of dictionaries, where each dictionary represents a FilePage object in the database.
-                Example: [{'id': 1, 'source': 'path/to/file.pdf', 'page': '1', 'date': '2024-10-08', 'language': 'en'}, ...]
+                Example: [{'id': 1, 'source': 'path/to/file.pdf', 'page': '1', 'date': '2024-10-08', 'language': 'en', 'file_size': 7.10}, {...}]
         """
         try:
             # Case 1: No metadata provided, fetch all file pages
@@ -644,7 +647,8 @@ class MySQLManager:
                     'source': doc.source,
                     'page': doc.page,
                     'date': doc.date.strftime('%Y-%m-%d %H:%M:%S'),
-                    'language': doc.language
+                    'language': doc.language,
+                    'file_size': round(doc.file_size, 2), # NOTE: this is the size of entire file, not just the page
                 }
                 for doc in existing_docs
             ]
