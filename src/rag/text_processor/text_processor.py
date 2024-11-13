@@ -1,6 +1,8 @@
 # rag/text_processor/text_processor.py
 import re
+from typing import Optional, List
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.schema import Document
 
 class TextProcessor:
     def __init__(self):
@@ -39,7 +41,7 @@ class TextProcessor:
         doc_chunks = text_splitter.split_documents(docs)
         return doc_chunks
 
-    def clean_page_content(self, docs):
+    def clean_page_content(self, docs: List[Document]):
         """
         Clean up the page content of each document in the list.
         Clean up newline characters and whitespaces to obtain compact text.
@@ -72,3 +74,18 @@ class TextProcessor:
 
         # Finally, strip leading and trailing whitespace (including newlines)
         return text.strip()
+    
+    def prepend_source_in_content(self, docs: List[Document], source: Optional[str] = None):
+        """
+        Prepend the source information to the page content of each document in the list.
+        If a source is provided, use that. Otherwise, use the 'source' key from each document's metadata.
+
+        :param docs: List[Document] - The list of documents to prepend the source to.
+        :param source: str (optional) - The source to prepend to the content. If not provided, use the 'source' key from the document's metadata.
+        """
+        
+        for doc in docs:
+            current_source = source or doc.metadata.get('source')
+            if current_source:
+                prefix = f"<source>{current_source}<\source>"
+                doc.page_content = " ".join([prefix, doc.page_content])

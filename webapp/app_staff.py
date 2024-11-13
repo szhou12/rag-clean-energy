@@ -172,8 +172,10 @@ with tab2:
 
         try:
             data_agent.process_file(file_path, file_size_mb, language=language)
-            st.success(f"File uploaded and processed successfully! Refresh to see the change!")
-            # TODO: after success, delete the file stored in /temp
+            st.success(f"File in {language} uploaded and processed successfully! Refresh to see the change!")
+            # After success, delete the file stored in /temp
+            os.remove(file_path)
+            st.write(f"Original file {file_path} has been deleted from /temp.")
 
         except Exception as e:
             st.error(f"Error processing file: {e}")
@@ -214,7 +216,7 @@ with tab2:
     )
 
     # TODO: delete after testing
-    st.write(data_agent.chroma_storage_testing())
+    # st.write(data_agent.chroma_storage_testing())
 
     # Handle deletions
     if st.button("Submit Changes"):

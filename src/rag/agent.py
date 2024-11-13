@@ -34,14 +34,15 @@ class RAGAgent:
             self.response_template = response_template
         else:
             self.response_template = """
-                Your answer should be in the format of a report that follows the structure below: \n
+                No matter user's query is in English or Chinese, the response should be in Chinese! \n
+                Your answer should be in a format of a report that follows the structure below: \n
                 Title: give a proper title \n\n
-                Summary: key points that should be highlighted \n\n
-                Details: provide details to each key point and enrich the details with numbers and statistics \n\n
-                Conclusion: give a proper conclusion
-                For any numbers or statistics you provide, please add the source in brackets.
-                At the end of the report, please provide a list of references. 
-                You should respond with the whole report in Chinese.
+                Summary: give a brief highlighted summary \n\n
+                Details: provide detailed content and enrich the details with numbers and statistics. 
+                For any numbers or statistics you provide, please cite the source content from the tag <source><\source> in brackets. DO NOT include the tag <source><\source>. \n\n
+                Conclusion: give a proper conclusion \n
+                At the end of the report, for any cited source, please provide a list of references from the tag <source><\source>. DO NOT include the tag <source><\source>. 
+                The whole report MUST be in Chinese.
                 """
 
             

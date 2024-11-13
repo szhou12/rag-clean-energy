@@ -59,14 +59,14 @@ class DataAgent:
         }
     
     # TODO: delete after testing
-    def chroma_storage_testing(self):
-        """
-        Test the connection to Chroma and storage functionality.
-        """
-        en_result = self.vector_stores['en'].storage_test()
-        zh_result = self.vector_stores['zh'].storage_test()
-        res = f"English: {en_result}, Chinese: {zh_result}"
-        return res
+    # def chroma_storage_testing(self):
+    #     """
+    #     Test the connection to Chroma and storage functionality.
+    #     """
+    #     # en_result = self.vector_stores['en'].storage_test()
+    #     zh_result = self.vector_stores['zh'].storage_test()
+    #     res = f"中文数据库: {zh_result}"
+    #     return res
 
 
     def close(self):
@@ -115,7 +115,7 @@ class DataAgent:
         finally:
             self.mysql_manager.close_session(session)
 
-    def process_file(self, filepath: str, file_size: float, language: Literal["en", "zh"] = "en"):
+    def process_file(self, filepath: str, file_size: float, language: Literal["en", "zh"]):
         """
         Process an uploaded file: parse file content, embed, and save to vector store.
         
@@ -137,8 +137,9 @@ class DataAgent:
             # Step 3: Clean content before splitting
             self.text_processor.clean_page_content(docs)
 
-            # Step 4: Split content into manageable chunks
+            # Step 4: Split content into manageable chunks, prepend source to each chunk
             new_file_pages_chunks = self.text_processor.split_text(docs)
+            self.text_processor.prepend_source_in_content(new_file_pages_chunks, source=os.path.basename(filepath))
 
             # Step 5: Embed each chunk (Document) and save to the vector store
             chunk_metadata_list = self.insert_file_data(docs_metadata=metadata, chunks=new_file_pages_chunks, language=language)
@@ -184,6 +185,7 @@ class DataAgent:
         
         # Step 5: Split content into manageable chunks
         new_web_pages_chunks = self.text_processor.split_text(new_web_pages)
+        self.text_processor.prepend_source_in_content(new_web_pages_chunks)
 
 
         # Step 6: Insert data: insert content into Chroma, insert metadata into MySQL
