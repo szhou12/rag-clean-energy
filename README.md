@@ -314,7 +314,7 @@ http://<your-ec2-public-ip>:8502   # For app_staff
 http://54.174.213.130:8501
 http://54.174.213.130:8502
 
-ssh -v -i /Users/shuyuzhou/Documents/dev_keys/rag-rmi-v2-ec2-key.pem ubuntu@54.174.213.130
+ssh -v -i /path/to/your-key.pem ubuntu@54.174.213.130
 
 # AWS EC2 instance: rag-rmi-v2
 ```
