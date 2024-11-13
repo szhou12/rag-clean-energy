@@ -41,7 +41,8 @@ class RAGAgent:
                 Details: provide detailed content and enrich the details with numbers and statistics. 
                 For any numbers or statistics you provide, please cite the source content from the tag <source><\source> in brackets. DO NOT include the tag <source><\source>. \n\n
                 Conclusion: give a proper conclusion \n
-                At the end of the report, for any cited source, please provide a list of references from the tag <source><\source>. DO NOT include the tag <source><\source>. 
+                At the end of the report, please provide a list of references from the tag <source><\source> ONLY for cited sources used in Details section. DO NOT duplicate refereces.
+                DO NOT include the tag <source><\source>. 
                 The whole report MUST be in Chinese.
                 """
 

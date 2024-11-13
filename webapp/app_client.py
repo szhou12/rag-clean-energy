@@ -48,15 +48,17 @@ if user_query:
     # Call RAGAgent or fall back to a simpler response
     with st.chat_message("AI"):
         with st.spinner("AI Agent is thinking..."):
+
             #### Debug by inspecting ####
-            retrieved_docs_runnable = rag_agent._retrieve_bilingual_contextual_docs()
-            retrieved_docs = retrieved_docs_runnable.invoke({
-                "chat_history": st.session_state.chat_history[-2:],
-                "input": user_query
-            })
-            st.write(retrieved_docs)
+            # retrieved_docs_runnable = rag_agent._retrieve_bilingual_contextual_docs()
+            # retrieved_docs = retrieved_docs_runnable.invoke({
+            #     "chat_history": st.session_state.chat_history[-2:],
+            #     "input": user_query
+            # })
+            # st.write(retrieved_docs)
             #### Debug by inspecting END ####
-            ai_response = st.write_stream(rag_agent.handle_query(user_query, st.session_state.chat_history[-2:]))
+            
+            ai_response = st.write_stream(rag_agent.handle_query(user_query, st.session_state.chat_history[-1:]))
 
     # Append the AI response to the chat history
     st.session_state.chat_history.append(AIMessage(content=ai_response))

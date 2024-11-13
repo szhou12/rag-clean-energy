@@ -40,7 +40,11 @@ with tab1:
     # URL input for scraping
     url = st.text_input("Website URL")
     max_pages = st.number_input("Maximum number of pages to scrape (max 10 pages):", min_value=1, max_value=10, value=1)
-    autodownload = st.checkbox("Enable autodownload of attached files", value=False)
+
+    # TODO: Implement autodownload
+    # autodownload = st.checkbox("Enable autodownload of attached files", value=False)
+    autodownload = False
+
     language = st.selectbox("Select Language", options=["en", "zh"], index=0)
 
     # Button to start scraping
@@ -154,16 +158,18 @@ with tab2:
     ############# File upload section #############
     st.title("File Uploading")
 
-    # Language selection
-    language = st.radio("Select the language of the file:", options=["en", "zh"], index=0)
+    # Language selection with default None
+    language = st.selectbox("Select Language of the File", options=["Select Language", "en", "zh"], index=0)
 
     uploaded_file = st.file_uploader("Upload a File", type=["pdf", "xlsx", "xls"])
-    if uploaded_file:
+
+    # Check that both language is selected and file is uploaded
+    if language in ["en", "zh"] and uploaded_file:
         temp_dir = os.path.join(os.path.dirname(__file__), '..', 'temp')
         file_path = os.path.join(temp_dir, uploaded_file.name)
 
         file_size_bytes = len(uploaded_file.getvalue())
-        file_size_mb = round(file_size_bytes / (1024 * 1024), 2) # file size in MB
+        file_size_mb = round(file_size_bytes / (1024 * 1024), 2)  # file size in MB
 
         if not os.path.exists(file_path):
             with open(file_path, "wb") as f:
@@ -171,14 +177,21 @@ with tab2:
             st.write(f"Saved to filepath: {file_path}")
 
         try:
+            # Process file if both conditions are met
             data_agent.process_file(file_path, file_size_mb, language=language)
             st.success(f"File in {language} uploaded and processed successfully! Refresh to see the change!")
+
             # After success, delete the file stored in /temp
             os.remove(file_path)
             st.write(f"Original file {file_path} has been deleted from /temp.")
 
         except Exception as e:
             st.error(f"Error processing file: {e}")
+    else:
+        if uploaded_file and language not in ["en", "zh"]:
+            st.warning("Please select a valid language (en or zh) to proceed.")
+        elif language in ["en", "zh"] and not uploaded_file:
+            st.warning("Please upload a file to proceed.")
 
     ############# Display data table #############
     st.title("Table for Uploaded Files")
