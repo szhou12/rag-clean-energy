@@ -260,11 +260,37 @@ docker compose up --build --no-deps app_client app_staff
 docker image prune -f  # Remove unused images
 ```
 
-
 - [Docker MySQL Official Documentation](https://hub.docker.com/_/mysql)
 - [Docker 部署Streamlit项目 | Streamlit如何部署到云服务器](https://developer.aliyun.com/article/1436718)
 - [How to Install Docker on Ubuntu 20](https://www.alibabacloud.com/blog/how-to-install-docker-on-ubuntu-20_599630)
 - [docker-compose up vs docker-compose up --build vs docker-compose build --no-cache](https://stackoverflow.com/questions/39988844/docker-compose-up-vs-docker-compose-up-build-vs-docker-compose-build-no-cach)
+
+#### Docker 镜像加速器
+```
+# 查看/etc/docker路径是否存在
+ls -ld /etc/docker
+
+# 添加镜像加速器，写入配置文件
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+    "registry-mirrors": [
+        "https://[ur-aliyun-mirror].mirror.aliyuncs.com",
+    	"https://docker.unsee.tech"
+    ]
+}
+EOF
+
+# 重启docker服务
+sudo systemctl daemon-reload && sudo systemctl restart docker
+
+# 检查加速器是否生效
+ping -c 3 [ur-aliyun-mirror].mirror.aliyuncs.com
+
+# 注：不需要修改 docker-compose.yml 和 Dockerfile，build时Docker会自动使用加速器
+```
+- [目前国内可用Docker镜像源汇总](https://www.coderjia.cn/archives/dba3f94c-a021-468a-8ac6-e840f85867ea)
+- [配置 Docker 镜像加速器](https://developer.tuya.com/en/docs/archived-documents/mirror?id=Kag5inkdpb60w)
+- [Docker 镜像加速](https://www.runoob.com/docker/docker-mirror-acceleration.html)
 
 ### MySQL
 - [MySQL in Docker](https://medium.com/@maravondra/mysql-in-docker-d7bb1e304473)
