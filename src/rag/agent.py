@@ -197,7 +197,7 @@ class RAGAgent:
         :return: An LCEL Runnable. The Runnable return is a dictionary containing at the very least a context and answer key.
         """
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n<retrieved context>{context}</retrieved context>"), # context = retrieved_docs
+            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n<context>{context}</context>"), # context = retrieved_docs
             ("system", self.response_template),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "<user query>{input}</user query>"), # input = user query
