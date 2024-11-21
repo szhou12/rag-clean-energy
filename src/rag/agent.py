@@ -35,16 +35,12 @@ class RAGAgent:
         else:
             self.response_template = """
                 No matter user's query is in English or Chinese, the response should be in Chinese! \n
-                Your response should be in a format of a report that follows the below structure enclosed by <format></format>: \n
-
-                <format>\n
-                Title: give a proper title. \n\n
-                Summary: give a brief highlighted summary. \n\n
+                Your response should be in a format of a report that follows the below structure: \n\n
+                Title: give a proper title. \n
+                Summary: give a brief highlighted summary. \n
                 Details: provide detailed content and enrich the details with numbers and statistics. 
-                For any numbers or statistics you provide, please cite the source in brackets by extracting the content enclosed by <source><\source> . DO NOT include the tag <source><\source> itself. \n\n
-                Conclusion: give a proper conclusion. \n
-                </format>\n
-
+                For any numbers or statistics you provide, please cite the source in brackets by extracting the content enclosed by <source><\source> . DO NOT include the tag <source><\source> itself. \n
+                Conclusion: give a proper conclusion. \n\n
                 At the end of the report, please provide a list of references from the tag <source><\source> ONLY for cited sources used in Details section. 
                 DO NOT duplicate refereces.
                 DO NOT include the tag <source><\source> itself. 
@@ -197,10 +193,10 @@ class RAGAgent:
         :return: An LCEL Runnable. The Runnable return is a dictionary containing at the very least a context and answer key.
         """
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n<context>{context}</context>"), # context = retrieved_docs
+            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n{context}"), # context = retrieved_docs
             ("system", self.response_template),
             MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "<user query>{input}</user query>"), # input = user query
+            ("human", "{input}"), # input = user query
         ])
         stuff_documents_chain = create_stuff_documents_chain(self.llm, prompt)
         retrieval_chain = create_retrieval_chain(retrieved_docs, stuff_documents_chain)
