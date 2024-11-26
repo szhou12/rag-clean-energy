@@ -1,4 +1,5 @@
 # src/rag/agent.py
+import logging
 from typing import Optional
 from langchain.chains.history_aware_retriever import create_history_aware_retriever
 from langchain.chains.retrieval import create_retrieval_chain
@@ -30,50 +31,111 @@ class RAGAgent:
         :return: None
         """
 
-        if response_template:
-            self.response_template = response_template
-        else:
-            self.response_template = """
-                No matter user's query is in English or Chinese, the response should be in Chinese! \n
-                Your response should be in a format of a report that follows the below structure: \n\n
-                Title: give a proper title. \n
-                Summary: give a brief highlighted summary. \n
-                Details: provide detailed content and enrich the details with numbers and statistics. 
-                For any numbers or statistics you provide, please cite the source in brackets by extracting the content enclosed by <source><\source> . DO NOT include the tag <source><\source> itself. \n
-                Conclusion: give a proper conclusion. \n\n
-                At the end of the report, please provide a list of references from the tag <source><\source> ONLY for cited sources used in Details section. 
-                DO NOT duplicate refereces.
-                DO NOT include the tag <source><\source> itself. 
-                The whole report MUST be in Chinese.
-                """
+        # Init scoped logger for RAGAgent
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.propagate = True
 
-            
-        # TODO: modify the way to write it later
-        self.llm = ChatOpenAI(
-            model=llm,
-            temperature=0,
-        )
+        try:
+            self.response_template = response_template or self._default_response_template()
+            self.llm = self._init_llm(llm)
+            self.embedders = self._init_embeddings()
+            self.vector_stores = self._init_vector_stores(vector_db_persist_dir)
+        except Exception as e:
+            self.logger.critical(f"RAGAgent initialization failed: {e}")
+            raise
 
-        ## Embedding models to convert texts to embeddings (vectors)
-        self.embedders = {
-            "openai": OpenAIEmbedding().model,
-            "bge_en": BgeEmbedding(model_name="BAAI/bge-small-en-v1.5").model,
-            "bge_zh": BgeEmbedding(model_name="BAAI/bge-small-zh-v1.5").model,
-        }
-
-        self.vector_stores = {
-            "en": ChromaVectorStore(
-                collection_name="docs_en",  # English collection
-                embedding_model=self.embedders['bge_en'],
-                persist_directory=vector_db_persist_dir,
-            ),
-            "zh": ChromaVectorStore(
-                collection_name="docs_zh",  # Chinese collection
-                embedding_model=self.embedders['bge_zh'],
-                persist_directory=vector_db_persist_dir,
-            ),
-        }
+    def _default_response_template(self):
+        return """
+            No matter user's query is in English or Chinese, the response should be in Chinese! \n
+            Your response should be in a format of a report that follows the below structure: \n\n
+            Title: give a proper title. \n
+            Summary: give a brief highlighted summary. \n
+            Details: provide detailed content and enrich the details with numbers and statistics. 
+            For any numbers or statistics you provide, please cite the source in brackets by extracting the content enclosed by <source><\source> . DO NOT include the tag <source><\source> itself. \n
+            Conclusion: give a proper conclusion. \n\n
+            At the end of the report, please provide a list of references from the tag <source><\source> ONLY for cited sources used in Details section. 
+            DO NOT duplicate refereces.
+            DO NOT include the tag <source><\source> itself. 
+            The whole report MUST be in Chinese.
+        """
     
+    def _init_llm(self, llm_name: str) -> ChatOpenAI:
+        try:
+            llm = ChatOpenAI(
+                model=llm_name, 
+                temperature=0
+            )
+            self.logger.info(f"LLM '{llm_name}' initialized successfully.")
+            return llm
+        except Exception as e:
+            self.logger.critical(f"Failed to initialize LLM '{llm_name}': {e}")
+            raise RuntimeError(f"Failed to initialize LLM: {e}")
+        
+    def _init_embeddings(self) -> dict:
+        """
+        Initialize embedding models and handle any errors during initialization.
+        Embedding models to convert texts to embeddings (vectors)
+        
+        :return: Dictionary containing successfully initialized embedding models.
+        """
+        embedders = {}
+        embedding_models = {
+            "openai": OpenAIEmbedding,
+            "bge_en": lambda: BgeEmbedding("BAAI/bge-small-en-v1.5"),
+            "bge_zh": lambda: BgeEmbedding("BAAI/bge-small-zh-v1.5"),
+        }
+
+        for key, embedder_cls in embedding_models.items():
+            try:
+                embedders[key] = embedder_cls().model
+                self.logger.info(f"Successfully initialized {key} embedding.")
+            except Exception as e:
+                self.logger.warning(f"Skipping {key} embedding due to error: {e}")
+
+        if not embedders:
+            self.logger.critical("Failed to initialize all embeddings. RAGAgent cannot proceed.")
+            raise RuntimeError("No embeddings initialized.")
+
+        return embedders
+    
+    def _init_vector_stores(self, persist_dir: Optional[str]) -> dict:
+        """
+        Initialize Chroma vector stores with a priority:
+        1. Use "bge_en" and "bge_zh" if available.
+        2. Fallback to "openai" for both "en" and "zh" if "bge" embeddings are unavailable.
+        3. Raise an error if no suitable embeddings are available.
+
+        :param persist_dir: Directory for persistent storage of vector databases.
+        :return: A dictionary of ChromaVectorStore objects for English and Chinese.
+        """
+        vector_stores = {}
+        try:
+            embedder = self.embedders.get("bge_en") and self.embedders.get("bge_zh")
+            if embedder:
+                vector_stores["en"] = self._create_vector_store("docs_en", self.embedders["bge_en"], persist_dir)
+                vector_stores["zh"] = self._create_vector_store("docs_zh", self.embedders["bge_zh"], persist_dir)
+            elif self.embedders.get("openai"):
+                vector_stores["en"] = self._create_vector_store("docs_en", self.embedders["openai"], persist_dir)
+                vector_stores["zh"] = self._create_vector_store("docs_zh", self.embedders["openai"], persist_dir)
+            else:
+                raise RuntimeError("No suitable embeddings found for vector stores.")
+        except Exception as e:
+            self.logger.critical(f"Failed to initialize vector stores: {e}")
+            raise
+
+        return vector_stores
+    
+    def _create_vector_store(self, collection_name: str, embedding_model, persist_dir: str) -> ChromaVectorStore:
+        try:
+            return ChromaVectorStore(
+                collection_name=collection_name,
+                embedding_model=embedding_model,
+                persist_directory=persist_dir,
+            )
+        except Exception as e:
+            self.logger.error(f"Error creating vector store {collection_name}: {e}")
+            raise
+
 
     def handle_query(self, user_query, chat_history):
         """

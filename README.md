@@ -247,9 +247,11 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ### Docker
 ```linux
 # Run docker compose to start all services
+# Add --build if you’ve updated the code, dependencies, or the Dockerfile, and you want those changes to be reflected in the image.
 docker compose up --build
 
 # Stop all services and Remove containers and their volumes
+# Add -v to remove volumes (data), ignore if you want to keep persisted data
 docker compose down -v
 
 # Update App - Rebuild and Restart Services with Docker Compose

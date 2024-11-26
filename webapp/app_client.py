@@ -3,6 +3,7 @@ import os
 import streamlit as st
 from langchain.schema import HumanMessage, AIMessage
 from dotenv import load_dotenv
+from utils import setup_logging
 
 # Add the src/ directory to the Python path in runtime
 # sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -11,7 +12,7 @@ from rag import RAGAgent
 
 
 # load_dotenv()
-
+setup_logging()
 rag_agent = RAGAgent(vector_db_persist_dir="/data/chroma")
 
 # Set page configuration

@@ -15,11 +15,19 @@ class OpenAIEmbedding(BaseEmbeddingModel):
         """
         super().__init__()  # Initialize the base class
 
-        api_key = os.getenv('OPENAI_API_KEY')  # Load API key from environment
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables.")
-        
-        if model_name is None:
-            self.model = OpenAIEmbeddings(api_key=api_key)
-        else:
-            self.model = OpenAIEmbeddings(model=model_name, api_key=api_key)
+        try:
+            api_key = os.getenv('OPENAI_API_KEY')  # Load API key from environment
+            if not api_key:
+                self.logger.error("OPENAI_API_KEY not found in environment variables.")
+                raise ValueError("OPENAI_API_KEY not found in environment variables.")
+            
+            if model_name is None:
+                self.model = OpenAIEmbeddings(api_key=api_key)
+            else:
+                self.model = OpenAIEmbeddings(model=model_name, api_key=api_key)
+
+            self.logger.info(f"Successfully initialized OpenAI Embedding Model: {model_name}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to initialize OpenAI Embedding Model: {model_name} due to {e}")
+            raise RuntimeError(f"Error initializing OpenAIEmbedding: {e}")

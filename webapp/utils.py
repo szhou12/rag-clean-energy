@@ -1,7 +1,18 @@
 # helper functions for Streamlit pages
+import logging
 import os
 from collections import defaultdict
 import pandas as pd
+
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.StreamHandler(),  # Logs to console
+            # logging.FileHandler("app.log"),  # TODO: Logs to a file
+        ],
+    )
 
 def clean_web_data(web_data: list[dict]):
     """
