@@ -1,5 +1,5 @@
 # Step 1: Use an official Python runtime as a parent image
-FROM python:3.10-slim
+FROM python:3.10-bookworm
 
 # Step 2: Set the working directory in the container
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install necessary tools for building SQLite
-RUN apt-get update && apt-get install -y sqlite3 libsqlite3-dev
+# RUN apt-get update && apt-get install -y sqlite3 libsqlite3-dev
 
 # Step 4: Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
