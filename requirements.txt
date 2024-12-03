@@ -16,3 +16,4 @@ sqlalchemy
 sqlalchemy-utils
 fastapi[standard]
 mysql-connector-python
+langchain-aws

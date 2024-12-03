@@ -6,6 +6,7 @@ from langchain.chains.retrieval import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
+from langchain_aws import ChatBedrock
 from rag.embedders import OpenAIEmbedding, BgeEmbedding
 from rag.vector_stores import ChromaVectorStore
 from rag.custom_retriever import BilingualRetriever
@@ -59,13 +60,35 @@ class RAGAgent:
             The whole report MUST be in Chinese.
         """
     
-    def _init_llm(self, llm_name: str) -> ChatOpenAI:
+    def _init_llm(self, llm_name: str):
+        """
+        Initializes an LLM instance based on the provided llm_name.
+
+        Parameters:
+            llm_name (str): The name of the LLM model to initialize.
+
+        Returns:
+            ChatOpenAI or ChatBedrock instance.
+
+        Raises:
+            RuntimeError: If initialization fails.
+        """
         try:
-            llm = ChatOpenAI(
-                model=llm_name, 
-                temperature=0
-            )
-            self.logger.info(f"LLM '{llm_name}' initialized successfully.")
+            if "gpt" in llm_name.lower():
+                llm = ChatOpenAI(
+                    model=llm_name,
+                    temperature=0
+                )
+                self.logger.info(f"LLM '{llm_name}' initialized successfully with ChatOpenAI.")
+            elif "claude" in llm_name.lower():
+                llm = ChatBedrock(
+                    model_id=llm_name,
+                    model_kwargs=dict(temperature=0)
+                )
+                self.logger.info(f"LLM '{llm_name}' initialized successfully with ChatBedrock.")
+            else:
+                raise ValueError(f"Unsupported LLM name: '{llm_name}'")
+
             return llm
         except Exception as e:
             self.logger.critical(f"Failed to initialize LLM '{llm_name}': {e}")

@@ -181,6 +181,7 @@ docker run --name='chroma_container' -d -p 8000:8000 chromadb/chroma
 - [FastAPI](#fastapi)
 - [Docker](#docker)
 - [MySQL](#mysql)
+- [AWS](#aws)
 
 
 ### Langchain
@@ -345,6 +346,27 @@ http://54.174.213.130:8502
 ssh -v -i /path/to/your-key.pem ubuntu@54.174.213.130
 
 # AWS EC2 instance: rag-rmi-v2
+
+llm_name:
+- gpt-4o-mini
+- anthropic.claude-3-haiku-20240307-v1:0
 ```
 1. 选择配置: 2CPU, 4G Memory, 30G Disk
 2. 添加 暴露端口 8501, 8502, 3306, 8000
+
+### AWS Bedrock
+1. [Langchain ChatBedrock](https://python.langchain.com/docs/integrations/chat/bedrock/)
+2. [Getting started with Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html)
+3. [Create a role to delegate permissions to an IAM user](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user.html)
+    - create a role (身份)
+    - select a trusted entity (e.g. EC2): who needs this role-granted permissions? (谁使用这个身份并享受权限)
+    - attach `AmazonBedrockFullAccess` policy (身份可以获得的权限)
+4. [Create IAM policies (console)](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create-console.html)
+    - create a custom policy. name it as `Custom-BedrockMarketplaceAccessPolicy`. copy and paste JSON code.
+    - attach this policy to the created role.
+5. Request access to an Amazon Bedrock foundation model
+    - open the Amazon Bedrock console at https://console.aws.amazon.com/bedrock/
+    - select **Model access** at the bottom of the left navigation pane
+    - select model
+6. Attach the role to your EC2
+    - **Actions** menu -> **Security** -> **Modify IAM Role** -> select the role
