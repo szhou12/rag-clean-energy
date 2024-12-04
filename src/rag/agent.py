@@ -197,11 +197,8 @@ class RAGAgent:
             )
         
         chain = prompt | self.llm
-        response = chain.invoke(
-            {
-                "input": user_query,
-            }
-        )
+        response = chain.invoke({"input": user_query,})
+        self.logger.critical(f"{response}")
         ### TESTING
 
         # return response["answer"] # use this if use retrieval_chain.invoke()
