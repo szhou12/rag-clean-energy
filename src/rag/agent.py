@@ -185,6 +185,25 @@ class RAGAgent:
             "input": user_query
         })
 
+        ## TESTING
+        prompt = ChatPromptTemplate.from_messages(
+                [
+                    (
+                        "system",
+                        "You are a helpful assistant who expertises in clean energy.",
+                    ),
+                    ("human", "{input}"),
+                ]
+            )
+        
+        chain = prompt | self.llm
+        response = chain.invoke(
+            {
+                "input": user_query,
+            }
+        )
+        ### TESTING
+
         # return response["answer"] # use this if use retrieval_chain.invoke()
         return response
     
