@@ -208,11 +208,12 @@ class RAGAgent:
         bilingual_retriever = BilingualRetriever(english_retriever=english_retriever, 
                                                  chinese_retriever=chinese_retriever)
         
-        self.logger.info(f"context_query: {self.prompt_manager.get_prompt("context_query")}")
+        context_query = self.prompt_manager.get_prompt("context_query")
+        self.logger.info(f"context_query: {context_query}")
 
         # Create the prompt template using LangChain's ChatPromptTemplate
         prompt = ChatPromptTemplate.from_messages([
-            ("system", self.prompt_manager.get_prompt("context_query")),
+            ("system", context_query),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
         ])
