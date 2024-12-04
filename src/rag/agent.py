@@ -40,8 +40,12 @@ class RAGAgent:
         try:
             self.response_template = response_template
             self.llm_name = llm_name
+            if "gpt" in self.llm_name.lower():
+                self.llm_type = "gpt"
+            elif "claude" in self.llm_name.lower():
+                self.llm_type = "claude"
             self.llm = self._init_llm()
-            self.prompt_manager = PromptManager(llm_name)
+            self.prompt_manager = PromptManager(self.llm_type)
             self.embedders = self._init_embeddings()
             self.vector_stores = self._init_vector_stores(vector_db_persist_dir)
         except Exception as e:
@@ -203,6 +207,8 @@ class RAGAgent:
         # Initialize the bilingual retriever with both English and Chinese retrievers
         bilingual_retriever = BilingualRetriever(english_retriever=english_retriever, 
                                                  chinese_retriever=chinese_retriever)
+        
+        self.logger.info(f"context_query: {self.prompt_manager.get_prompt("context_query")}")
 
         # Create the prompt template using LangChain's ChatPromptTemplate
         prompt = ChatPromptTemplate.from_messages([
@@ -230,6 +236,8 @@ class RAGAgent:
         """
 
         template = self.response_template or self.prompt_manager.get_prompt("response_template")
+
+        self.logger.info(f"response template: {template}")
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", template),

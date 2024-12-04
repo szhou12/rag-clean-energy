@@ -2,14 +2,14 @@ import os
 import yaml
 
 class PromptManager:
-    def __init__(self, llm_name: str, yaml_file: str = "prompts.yaml"):
+    def __init__(self, llm_type: str, yaml_file: str = "prompts.yaml"):
         """
         Load prompts from a YAML file from a path (specific to the PromptManager's directory).
 
-        :param llm_name: Type of LLM to use (e.g., 'gpt', 'claude').
+        :param llm_type: Type of LLM to use (e.g., 'gpt', 'claude').
         :param yaml_file: YAML file name containing prompts. Defaults to 'prompts.yaml'.
         """
-        self.llm_type = llm_name
+        self.llm_type = llm_type
         self.yaml_path = os.path.join(os.path.dirname(__file__), yaml_file)
         self.prompts = self._load_prompts()
 

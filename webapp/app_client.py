@@ -9,9 +9,6 @@ from rag import RAGAgent
 # Add the src/ directory to the Python path in runtime
 # sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-
-
-
 # load_dotenv()
 setup_logging()
 

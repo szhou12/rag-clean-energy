@@ -332,6 +332,9 @@ sudo docker-compose up --build
 
 sudo docker-compose down -v
 
+sudo docker-compose build app_client
+sudo docker-compose up app_client
+
 # inspect disk usage
 df -h 
 
