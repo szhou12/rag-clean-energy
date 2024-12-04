@@ -370,3 +370,6 @@ llm_name:
     - select model
 6. Attach the role to your EC2
     - **Actions** menu -> **Security** -> **Modify IAM Role** -> select the role
+
+- [Claude - Amazon Bedrock](https://docs.anthropic.com/en/api/claude-on-amazon-bedrock)
+- [Installing or updating to the latest version of the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)

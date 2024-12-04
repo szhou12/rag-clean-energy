@@ -4,16 +4,17 @@ import streamlit as st
 from langchain.schema import HumanMessage, AIMessage
 from dotenv import load_dotenv
 from utils import setup_logging
+from rag import RAGAgent
 
 # Add the src/ directory to the Python path in runtime
 # sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from rag import RAGAgent
+
 
 
 # load_dotenv()
 setup_logging()
-rag_agent = RAGAgent(vector_db_persist_dir="/data/chroma")
+
 
 # Set page configuration
 st.set_page_config(page_title="Clean Energy AI Consultant", page_icon="\N{robot face}")
@@ -21,6 +22,15 @@ st.set_page_config(page_title="Clean Energy AI Consultant", page_icon="\N{robot 
 with st.sidebar:
     st.title("Settings")
     debug_on = st.toggle("Debug Mode")
+
+    # Drop-down menu for LLM selection
+    llm_choice = st.selectbox(
+        "Select a LLM:",  # Label for the drop-down
+        ["anthropic.claude-3-haiku-20240307-v1:0", "gpt-4o-mini"],
+        index=0
+    )
+
+rag_agent = RAGAgent(llm_name=llm_choice, vector_db_persist_dir="/data/chroma")
 
 # Title and heading
 st.title("Clean Energy AI Consultant \N{robot face}")

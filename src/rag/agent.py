@@ -10,12 +10,13 @@ from langchain_aws import ChatBedrock
 from rag.embedders import OpenAIEmbedding, BgeEmbedding
 from rag.vector_stores import ChromaVectorStore
 from rag.custom_retriever import BilingualRetriever
+from rag.prompts import PromptManager
 
 
 class RAGAgent:
     def __init__(
             self,
-            llm: str = "anthropic.claude-3-haiku-20240307-v1:0",
+            llm_name: str = "anthropic.claude-3-haiku-20240307-v1:0",
             vector_db_persist_dir: Optional[str] = None, 
             response_template: Optional[str] = None 
     ) -> None:
@@ -37,30 +38,17 @@ class RAGAgent:
         self.logger.propagate = True
 
         try:
-            self.response_template = response_template or self._default_response_template()
-            self.llm = self._init_llm(llm)
+            self.response_template = response_template
+            self.llm_name = llm_name
+            self.llm = self._init_llm()
+            self.prompt_manager = PromptManager(llm_name)
             self.embedders = self._init_embeddings()
             self.vector_stores = self._init_vector_stores(vector_db_persist_dir)
         except Exception as e:
             self.logger.critical(f"RAGAgent initialization failed: {e}")
             raise
-
-    def _default_response_template(self):
-        return """
-            No matter user's query is in English or Chinese, the response should be in Chinese! \n
-            Your response should be in a format of a report that follows the below structure: \n\n
-            Title: give a proper title. \n
-            Summary: give a brief highlighted summary. \n
-            Details: provide detailed content and enrich the details with numbers and statistics. 
-            For any numbers or statistics you provide, please cite the source in brackets by extracting the content enclosed by <source><\source> . DO NOT include the tag <source><\source> itself. \n
-            Conclusion: give a proper conclusion. \n\n
-            At the end of the report, please provide a list of references from the tag <source><\source> ONLY for cited sources used in Details section. 
-            DO NOT duplicate refereces.
-            DO NOT include the tag <source><\source> itself. 
-            The whole report MUST be in Chinese.
-        """
     
-    def _init_llm(self, llm_name: str):
+    def _init_llm(self):
         """
         Initializes an LLM instance based on the provided llm_name.
 
@@ -74,25 +62,25 @@ class RAGAgent:
             RuntimeError: If initialization fails.
         """
         try:
-            if "gpt" in llm_name.lower():
+            if "gpt" in self.llm_name.lower():
                 llm = ChatOpenAI(
-                    model=llm_name,
+                    model=self.llm_name,
                     temperature=0
                 )
-                self.logger.info(f"LLM '{llm_name}' initialized successfully with ChatOpenAI.")
-            elif "claude" in llm_name.lower():
+                self.logger.info(f"LLM '{self.llm_name}' initialized successfully with ChatOpenAI.")
+            elif "claude" in self.llm_name.lower():
                 llm = ChatBedrock(
-                    model_id=llm_name,
+                    model_id=self.llm_name,
                     region_name="us-east-1",
                     model_kwargs=dict(temperature=0)
                 )
-                self.logger.info(f"LLM '{llm_name}' initialized successfully with ChatBedrock.")
+                self.logger.info(f"LLM '{self.llm_name}' initialized successfully with ChatBedrock.")
             else:
-                raise ValueError(f"Unsupported LLM name: '{llm_name}'")
+                raise ValueError(f"Unsupported LLM name: '{self.llm_name}'")
 
             return llm
         except Exception as e:
-            self.logger.critical(f"Failed to initialize LLM '{llm_name}': {e}")
+            self.logger.critical(f"Failed to initialize LLM '{self.llm_name}': {e}")
             raise RuntimeError(f"Failed to initialize LLM: {e}")
         
     def _init_embeddings(self) -> dict:
@@ -160,49 +148,6 @@ class RAGAgent:
             self.logger.error(f"Error creating vector store {collection_name}: {e}")
             raise
 
-
-    def handle_query(self, user_query, chat_history):
-        """
-        Handle a user query by retrieving relevant information and formatting a contextual response by referring to the chat history.
-        Workflow:
-            user query -> _retrieve_contextual_docs() retrieve relevant docs (cost point) -> _format_response() format response (cost point)
-        
-        :param query: The user's query
-        :param chat_history: The chat history
-        :return: Formatted response to the query
-        """
-        # Step 1: Retrieve relevant chunks from the vector store
-        # TODO deprecate: relevant_chunks = self._retrieve_contextual_docs()
-        relevant_chunks = self._retrieve_bilingual_contextual_docs()
-        
-        # Step 2: Format the response using the predefined template
-        retrieval_chain = self._format_response(relevant_chunks)
-
-        # Step 3: Stream the response
-        answer_only_retrieval_chain = retrieval_chain.pick("answer") # .pick() keeps only key="answer" in the response
-        response = answer_only_retrieval_chain.stream({
-            "chat_history": chat_history,
-            "input": user_query
-        })
-
-        ## TESTING
-        prompt = ChatPromptTemplate.from_messages(
-                [
-                    (
-                        "system",
-                        "You are a helpful assistant who expertises in clean energy.",
-                    ),
-                    ("human", "{input}"),
-                ]
-            )
-        
-        chain = prompt | self.llm
-        response = chain.invoke({"input": user_query,})
-        self.logger.critical(f"{response}")
-        ### TESTING
-
-        # return response["answer"] # use this if use retrieval_chain.invoke()
-        return response
     
     ## TODO: deprecate
     # def _retrieve_contextual_docs(self):
@@ -259,20 +204,9 @@ class RAGAgent:
         bilingual_retriever = BilingualRetriever(english_retriever=english_retriever, 
                                                  chinese_retriever=chinese_retriever)
 
-        # Define the prompt to contextualize the query using the chat history
-        contextualize_q_system_prompt = (
-            "Given a chat history and the latest user question "
-            "which might reference context in the chat history, "
-            "formulate a standalone question which can be understood "
-            "without the chat history. Do NOT answer the question, "
-            "just reformulate it if needed and otherwise return it as is.\n"
-            "根据聊天记录和最新的用户问题，请将最新的用户问题重新表述为一个可以在没有聊天记录的情况下理解的独立问题。"
-            "不要回答问题，只需要重新表述即可。如果没有必要重新表述，则原样返回问题。"
-        )
-
         # Create the prompt template using LangChain's ChatPromptTemplate
         prompt = ChatPromptTemplate.from_messages([
-            ("system", contextualize_q_system_prompt),
+            ("system", self.prompt_manager.get_prompt("context_query")),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
         ])
@@ -291,19 +225,48 @@ class RAGAgent:
         3. The LLM combines the retrieved information with its own knowledge to create a comprehensive, structured response to user's query.
         4. The final response will be in the format of the response template provided during initialization.
 
-        :param retrieved_docs: List of text chunks retrieved from the vector store
+        :param retrieved_docs: List of text chunks retrieved from the vector store. will be injected into context in the promot.
         :return: An LCEL Runnable. The Runnable return is a dictionary containing at the very least a context and answer key.
         """
+
+        template = self.response_template or self.prompt_manager.get_prompt("response_template")
+
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "Combine the given chat history and the following pieces of retrieved context to answer the user's question.\n{context}"), # context = retrieved_docs
-            ("system", self.response_template),
-            # MessagesPlaceholder(variable_name="chat_history"),
+            ("system", template),
+            MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"), # input = user query
         ])
-
 
         stuff_documents_chain = create_stuff_documents_chain(self.llm, prompt)
         retrieval_chain = create_retrieval_chain(retrieved_docs, stuff_documents_chain)
         return retrieval_chain
+    
+    def handle_query(self, user_query, chat_history):
+        """
+        Handle a user query by retrieving relevant information and formatting a contextual response by referring to the chat history.
+        Workflow:
+            user query -> _retrieve_contextual_docs() retrieve relevant docs (cost point) -> _format_response() format response (cost point)
+        
+        :param query: The user's query
+        :param chat_history: The chat history
+        :return: Formatted response to the query
+        """
+        # Step 1: Retrieve relevant chunks from the vector store
+        # TODO deprecate: relevant_chunks = self._retrieve_contextual_docs()
+        relevant_chunks = self._retrieve_bilingual_contextual_docs()
+        
+        # Step 2: Format the response using the predefined template
+        retrieval_chain = self._format_response(relevant_chunks)
+
+        # Step 3: Stream the response
+        # .pick() keeps only key="answer" in the response
+        answer_only_retrieval_chain = retrieval_chain.pick("answer") 
+        response = answer_only_retrieval_chain.stream({
+            "chat_history": chat_history,
+            "input": user_query
+        })
+
+        # return response["answer"] # use this if use retrieval_chain.invoke()
+        return response
 
 
