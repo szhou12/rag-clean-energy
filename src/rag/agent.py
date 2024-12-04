@@ -26,7 +26,7 @@ class RAGAgent:
             2. Retrieve relevant documents from Chroma
             3. Generate a response using the language model
         
-        :param llm: (str) - Name of the language model (e.g., "gpt-4o-mini")
+        :param llm: (str) - Name of the language model (e.g., "gpt-4o-mini", "anthropic.claude-3-haiku-20240307-v1:0")
         :param vector_db_persist_dir: (str | None) - Name of Chroma's persistent directory inside a docker container. Used to construct persistent directory. If None, storage is in-memory and emphemeral.
         :param response_template: (str | None) - Predefined template for formatting responses
         :return: None
@@ -83,6 +83,7 @@ class RAGAgent:
             elif "claude" in llm_name.lower():
                 llm = ChatBedrock(
                     model_id=llm_name,
+                    region_name="us-east-1",
                     model_kwargs=dict(temperature=0)
                 )
                 self.logger.info(f"LLM '{llm_name}' initialized successfully with ChatBedrock.")
