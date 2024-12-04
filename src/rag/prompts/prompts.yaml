@@ -60,7 +60,7 @@ prompts:
         - If user query is in Chinese → Respond in Chinese (中文)
       2. Response Structure:
         Title: Provide a clear, topic-specific title
-        Summary: Give a concise highlight of key findings
+        Summary: Provide a paragraph that concisely describes and highlights key findings
         Details: 
         - Provide comprehensive analysis with supporting data and statistics
         - When citing numbers or statistics from context, reference the source in brackets ()
