@@ -15,7 +15,7 @@ from rag.custom_retriever import BilingualRetriever
 class RAGAgent:
     def __init__(
             self,
-            llm: str = "gpt-4o-mini",
+            llm: str = "anthropic.claude-3-haiku-20240307-v1:0",
             vector_db_persist_dir: Optional[str] = None, 
             response_template: Optional[str] = None 
     ) -> None:
@@ -285,8 +285,8 @@ class RAGAgent:
             ("human", "{input}"), # input = user query
         ])
 
-        messages = prompt.format_messages({"chat_history": [], "input": "test query"})
-        self.logger.debug(f"Formatted messages: {messages}")
+        # messages = prompt.format_messages({"chat_history": [], "input": "test query"})
+        # self.logger.debug(f"Formatted messages: {messages}")
 
         stuff_documents_chain = create_stuff_documents_chain(self.llm, prompt)
         retrieval_chain = create_retrieval_chain(retrieved_docs, stuff_documents_chain)
