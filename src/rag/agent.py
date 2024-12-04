@@ -284,6 +284,10 @@ class RAGAgent:
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"), # input = user query
         ])
+
+        messages = prompt.format_messages({"chat_history": [], "input": "test query"})
+        self.logger.debug(f"Formatted messages: {messages}")
+
         stuff_documents_chain = create_stuff_documents_chain(self.llm, prompt)
         retrieval_chain = create_retrieval_chain(retrieved_docs, stuff_documents_chain)
         return retrieval_chain
