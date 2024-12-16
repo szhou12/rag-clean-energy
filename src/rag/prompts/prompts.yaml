@@ -67,11 +67,11 @@ prompts:
         - For each source citation:
           * Look for content between <source> and </source> tags
           * Extract the source name/identifier
-          * Use format: [Source Name] without including the tags
+          * Use format: (Source Name) without including the tags
           * Example: If context has <source>Energy Report 2023</source> Some data..., cite as (Energy Report 2023)
         Conclusion: Provide key takeaways and implications
         References: List all unique sources used in the response
-      3. Important Notes:
+      3. Important Rules:
         - Use only facts from provided sources
         - If information is insufficient, acknowledge gaps and share available relevant facts
         - Your answers must be accurate and grounded on truth
