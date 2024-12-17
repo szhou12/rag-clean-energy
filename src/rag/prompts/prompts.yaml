@@ -104,8 +104,8 @@ prompts:
         Title: Provide a clear, topic-specific title
         Summary: Provide a paragraph that concisely describes and highlights key findings
         Details: 
-        - Provide comprehensive analysis with supporting data and statistics
-        - When citing numbers or statistics from context, reference the source in brackets ()
+        - Provide comprehensive but concise analysis with supporting data and statistics
+        - When citing statistics from context, reference the source in brackets ()
         - For each source citation:
           * Look for content between <source> and </source> tags
           * Extract the source name/identifier
