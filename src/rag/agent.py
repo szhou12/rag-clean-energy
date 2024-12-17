@@ -99,8 +99,10 @@ class RAGAgent:
             "openai": OpenAIEmbedding,
             # "bge_en": lambda: BgeEmbedding("BAAI/bge-small-en-v1.5"),
             # "bge_zh": lambda: BgeEmbedding("BAAI/bge-small-zh-v1.5"),
-            "bge_en": lambda: BgeEmbedding("BAAI/bge-large-en-v1.5"),
-            "bge_zh": lambda: BgeEmbedding("BAAI/bge-large-zh-v1.5"),
+            "bge_en": lambda: BgeEmbedding("BAAI/bge-base-en-v1.5"),
+            "bge_zh": lambda: BgeEmbedding("BAAI/bge-base-zh-v1.5"),
+            # "bge_en": lambda: BgeEmbedding("BAAI/bge-large-en-v1.5"),
+            # "bge_zh": lambda: BgeEmbedding("BAAI/bge-large-zh-v1.5"),
         }
 
         for key, embedder_cls in embedding_models.items():

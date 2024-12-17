@@ -41,8 +41,10 @@ class DataAgent:
             "openai": OpenAIEmbedding().model,
             # "bge_en": BgeEmbedding(model_name="BAAI/bge-small-en-v1.5").model,
             # "bge_zh": BgeEmbedding(model_name="BAAI/bge-small-zh-v1.5").model,
-            "bge_en": BgeEmbedding(model_name="BAAI/bge-large-en-v1.5").model,
-            "bge_zh": BgeEmbedding(model_name="BAAI/bge-large-zh-v1.5").model,
+            "bge_en": BgeEmbedding(model_name="BAAI/bge-base-en-v1.5").model,
+            "bge_zh": BgeEmbedding(model_name="BAAI/bge-base-zh-v1.5").model,
+            # "bge_en": BgeEmbedding(model_name="BAAI/bge-large-en-v1.5").model,
+            # "bge_zh": BgeEmbedding(model_name="BAAI/bge-large-zh-v1.5").model,
         }
 
         self.vector_stores = {
