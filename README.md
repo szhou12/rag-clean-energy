@@ -361,7 +361,7 @@ llm_name:
 1. [Langchain ChatBedrock](https://python.langchain.com/docs/integrations/chat/bedrock/)
 2. [Getting started with Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html)
 3. [Create a role to delegate permissions to an IAM user](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user.html)
-    - create a role (身份)
+    - create a role (身份), give it a name. e.g. `ec2-access-bedrock`
     - select a trusted entity (e.g. EC2): who needs this role-granted permissions? (谁使用这个身份并享受权限)
     - attach `AmazonBedrockFullAccess` policy (身份可以获得的权限)
 4. [Create IAM policies (console)](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create-console.html)
@@ -373,6 +373,7 @@ llm_name:
     - select model
 6. Attach the role to your EC2
     - **Actions** menu -> **Security** -> **Modify IAM Role** -> select the role
+7. To call APIs: search model ID from [here](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html), and add it to your app (you probably need to specify region too).
 
 - [Claude - Amazon Bedrock](https://docs.anthropic.com/en/api/claude-on-amazon-bedrock)
 - [Installing or updating to the latest version of the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)

@@ -16,7 +16,7 @@ from rag.prompts import PromptManager
 class RAGAgent:
     def __init__(
             self,
-            llm_name: str = "anthropic.claude-3-haiku-20240307-v1:0",
+            llm_name: str = "gpt-4o-mini",
             vector_db_persist_dir: Optional[str] = None, 
             response_template: Optional[str] = None 
     ) -> None:
@@ -27,7 +27,7 @@ class RAGAgent:
             2. Retrieve relevant documents from Chroma
             3. Generate a response using the language model
         
-        :param llm: (str) - Name of the language model (e.g., "gpt-4o-mini", "anthropic.claude-3-haiku-20240307-v1:0")
+        :param llm: (str) - Name of the language model (e.g., "gpt-4o-mini")
         :param vector_db_persist_dir: (str | None) - Name of Chroma's persistent directory inside a docker container. Used to construct persistent directory. If None, storage is in-memory and emphemeral.
         :param response_template: (str | None) - Predefined template for formatting responses
         :return: None
@@ -97,8 +97,10 @@ class RAGAgent:
         embedders = {}
         embedding_models = {
             "openai": OpenAIEmbedding,
-            "bge_en": lambda: BgeEmbedding("BAAI/bge-small-en-v1.5"),
-            "bge_zh": lambda: BgeEmbedding("BAAI/bge-small-zh-v1.5"),
+            # "bge_en": lambda: BgeEmbedding("BAAI/bge-small-en-v1.5"),
+            # "bge_zh": lambda: BgeEmbedding("BAAI/bge-small-zh-v1.5"),
+            "bge_en": lambda: BgeEmbedding("BAAI/bge-large-en-v1.5"),
+            "bge_zh": lambda: BgeEmbedding("BAAI/bge-large-zh-v1.5"),
         }
 
         for key, embedder_cls in embedding_models.items():
@@ -201,8 +203,20 @@ class RAGAgent:
             raise ValueError("Vector stores for both Chinese and English must be initialized.")
         
         # Create retrievers for English and Chinese vector stores
-        english_retriever = self.vector_stores['en'].as_retriever()
-        chinese_retriever = self.vector_stores['zh'].as_retriever()
+        search_kwargs = {
+            "k": 5,
+            "fetch_k": 20,
+            "lambda_mult": 0.4,  # 0~1, smaller value, higher diversity
+        }
+        search_type = "mmr"
+        english_retriever = self.vector_stores['en'].as_retriever(
+            search_type=search_type,
+            search_kwargs=search_kwargs
+        )
+        chinese_retriever = self.vector_stores['zh'].as_retriever(
+            search_type=search_type,
+            search_kwargs=search_kwargs
+        )
 
         # Initialize the bilingual retriever with both English and Chinese retrievers
         bilingual_retriever = BilingualRetriever(english_retriever=english_retriever, 

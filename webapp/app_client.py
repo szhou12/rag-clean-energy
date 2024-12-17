@@ -23,7 +23,10 @@ with st.sidebar:
     # Drop-down menu for LLM selection
     llm_choice = st.selectbox(
         "Select a LLM:",  # Label for the drop-down
-        ["anthropic.claude-3-haiku-20240307-v1:0", "gpt-4o-mini"],
+        ["anthropic.claude-3-5-haiku-20241022-v1:0", 
+         "anthropic.claude-3-5-sonnet-20241022-v2:0",
+         "anthropic.claude-3-5-sonnet-20240620-v1:0", 
+         "gpt-4o-mini"],
         index=0
     )
 

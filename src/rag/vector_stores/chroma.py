@@ -68,6 +68,15 @@ class ChromaVectorStore(VectorStore):
     def as_retriever(self, **kwargs):
         """
         Wrapper of as_retriever() method of Chroma class.
+
+        :search_type: similarity algorithm - "similarity" (default), "mmr", or "similarity_score_threshold".
+
+        :search_kwargs:
+            - k: Amount of documents to return (Default: 4)
+            - fetch_k: Amount of documents to pass to "mmr" algorithm (Default: 20)
+            - lambda_mult: Diversity of results returned by "mmr"; 1 for minimum diversity and 0 for maximum. (Default: 0.5)
+            - score_threshold: Minimum relevance threshold for "similarity_score_threshold"
+            - filter: Filter by document metadata
         """
         return self.vector_store.as_retriever(**kwargs)
 
