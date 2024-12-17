@@ -208,7 +208,7 @@ class RAGAgent:
         search_kwargs = {
             "k": 5,
             "fetch_k": 20,
-            "lambda_mult": 0.4,  # 0~1, smaller value, higher diversity
+            "lambda_mult": 0.2,  # 0~1, smaller value, higher diversity
         }
         search_type = "mmr"
         english_retriever = self.vector_stores['en'].as_retriever(
