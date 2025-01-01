@@ -26,6 +26,7 @@ with st.sidebar:
         ["anthropic.claude-3-5-haiku-20241022-v1:0", 
          "anthropic.claude-3-5-sonnet-20241022-v2:0",
          "anthropic.claude-3-5-sonnet-20240620-v1:0",
+         "anthropic.claude-3-sonnet-20240229-v1:0",
          "gpt-4o-mini"],
         index=0
     )

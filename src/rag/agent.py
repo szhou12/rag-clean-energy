@@ -75,7 +75,7 @@ class RAGAgent:
             elif "claude" in self.llm_name.lower():
                 llm = ChatBedrock(
                     model_id=self.llm_name,
-                    region_name="us-west-2",
+                    region_name="us-east-1",
                     model_kwargs=dict(temperature=0),
                     max_tokens=3000,
                 )
