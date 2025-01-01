@@ -76,7 +76,8 @@ class RAGAgent:
                 llm = ChatBedrock(
                     model_id=self.llm_name,
                     region_name="us-east-1",
-                    model_kwargs=dict(temperature=0)
+                    model_kwargs=dict(temperature=0),
+                    max_tokens=3000,
                 )
                 self.logger.info(f"LLM '{self.llm_name}' initialized successfully with ChatBedrock.")
             else:
