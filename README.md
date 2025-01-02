@@ -377,3 +377,5 @@ llm_name:
 
 - [Claude - Amazon Bedrock](https://docs.anthropic.com/en/api/claude-on-amazon-bedrock)
 - [Installing or updating to the latest version of the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- [Amazon Bedrock - Model ID, Regin](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html)
+    - Claude 3.5 Haiku, Claude 3.5 Sonnet v2 currently NOT accessible.
