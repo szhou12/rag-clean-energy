@@ -111,7 +111,7 @@ prompts:
           * Extract the source name/identifier
           * Use format: (Source Name) without including the tags
           * Example: If context has <source>Energy Report 2023</source> Some data..., cite as (Energy Report 2023)
-        Conclusion: Summarize generated details and based on that, offer constructive suggestions and recommendations.
+        Conclusion: Summarize generated details. Think step-by-step before you write the conclusion in <thinking> tags. First, think through what information might appeal to this user given the numbers and statistics that you chose to present in the details section. Then, think through what aspects and leading factors of this domain of interest would appeal to an investor who is interested in investing in this domain. Finally, write the personalized conclusion in <answer> tags, using your analysis.
         References: List all unique sources used in the response
       3. Important Rules:
         - Use only facts from provided sources

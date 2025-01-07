@@ -169,6 +169,11 @@ docker run --name='chroma_container' -d -p 8000:8000 chromadb/chroma
 - [Stream LLMs with LangChain + Streamlit | Tutorial](https://www.youtube.com/watch?v=zKGeRWjJlTU&t=240s&ab_channel=AlejandroAO-Software%26Ai)
 - [Differences between Langchain & LlamaIndex](https://stackoverflow.com/questions/76990736/differences-between-langchain-llamaindex)
 
+
+## Prompting
+- [Prompt Engineering Guide](https://www.promptingguide.ai/)
+- [CoT - Claude](https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/chain-of-thought)
+
 ## Resources
 ### 技术栈目录
 - [Tutorials](#tutorials)
@@ -366,7 +371,24 @@ llm_name:
     - attach `AmazonBedrockFullAccess` policy (身份可以获得的权限)
 4. [Create IAM policies (console)](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create-console.html)
     - create a custom policy. name it as `Custom-BedrockMarketplaceAccessPolicy`. copy and paste JSON code.
-    - attach this policy to the created role.
+    ```json
+    {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "MarketplaceBedrock",
+                "Effect": "Allow",
+                "Action": [
+                    "aws-marketplace:ViewSubscriptions",
+                    "aws-marketplace:Unsubscribe",
+                    "aws-marketplace:Subscribe"
+                ],
+                "Resource": "*"
+            }
+        ]
+    }
+    ```
+    - attach this policy to the created role: select the role `ec2-access-bedrock` -> add permisions -> search for the policy `Custom-BedrockMarketplaceAccessPolicy` -> add it
 5. Request access to an Amazon Bedrock foundation model
     - open the Amazon Bedrock console at https://console.aws.amazon.com/bedrock/
     - select **Model access** at the bottom of the left navigation pane
