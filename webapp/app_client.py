@@ -25,7 +25,8 @@ with st.sidebar:
         "Select a LLM:",  # Label for the drop-down
         ["anthropic.claude-3-5-sonnet-20240620-v1:0",
          "anthropic.claude-3-sonnet-20240229-v1:0",
-         "gpt-4o-mini"],
+         "gpt-4o-mini",
+         "gpt-4o"],
         index=0
     )
 

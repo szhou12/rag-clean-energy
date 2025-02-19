@@ -1,5 +1,34 @@
 # RAG
 
+## TO-DO Updates
+1. langchain-huggingface
+```
+/app/src/rag/embedders/bge_embedder.py:19: LangChainDeprecationWarning: The class `HuggingFaceBgeEmbeddings` was deprecated in LangChain 0.2.2 and will be removed in 1.0. An updated version of the class exists in the :class:`~langchain-huggingface package and should be used instead. To use it run `pip install -U :class:`~langchain-huggingface` and import as `from :class:`~langchain_huggingface import HuggingFaceEmbeddings``.
+
+self.model = HuggingFaceBgeEmbeddings()
+```
+2. PyMuPDF currently working version
+```
+pymupdf==1.23.8
+```
+3. PyTorch
+```
+2025-02-19 22:12:32.549 Examining the path of torch.classes raised:
+
+app_client-1      | Traceback (most recent call last):
+app_client-1      |   File "/usr/local/lib/python3.10/site-packages/streamlit/watcher/local_sources_watcher.py", line 217, in get_module_paths
+app_client-1      |     potential_paths = extract_paths(module)
+app_client-1      |   File "/usr/local/lib/python3.10/site-packages/streamlit/watcher/local_sources_watcher.py", line 210, in <lambda>
+app_client-1      |     lambda m: list(m.__path__._path),
+app_client-1      |   File "/usr/local/lib/python3.10/site-packages/torch/_classes.py", line 13, in __getattr__
+app_client-1      |     proxy = torch._C._get_custom_class_python_wrapper(self.name, attr)
+app_client-1      | RuntimeError: Tried to instantiate class '__path__._path', but it does not exist! Ensure that it is registered via torch::class_
+
+suggested solutions:
+sentence_transformers==2.2.2
+torch==2.1.0
+```
+
 ## Dependencies
 ### Conda Environment
 ```linux
