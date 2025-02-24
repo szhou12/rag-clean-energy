@@ -7,7 +7,7 @@ langchain-community
 beautifulsoup4
 langchain-chroma
 chromadb
-pymupdf==1.23.8
+pymupdf
 unstructured
 openpyxl
 markdown

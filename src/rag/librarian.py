@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import contextmanager
 from collections import defaultdict
@@ -10,6 +11,12 @@ from rag.scrapers import WebScraper
 from rag.embedders import OpenAIEmbedding, BgeEmbedding
 from rag.vector_stores import ChromaVectorStore
 from rag.text_processor import TextProcessor
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 class DataAgent:
     def __init__(
@@ -128,26 +135,43 @@ class DataAgent:
         :param language: The language of the web page content. Only "en" (English) or "zh" (Chinese) are accepted.
         :return: None
         """
+        logger.info(f"Starting process_file with filepath: {filepath}, size: {file_size}, language: {language}")
         try:
             # Step 1: Check if the file already exists in the database
+            logger.info(f"Step 1: Checking if file exists at {filepath}")
             if self._file_source_exists(filepath):
-                print(f"File <{filepath}> already exists in the database.")
+                # print(f"File <{filepath}> already exists in the database.")
+                logger.info(f"File <{filepath}> already exists in the database.")
                 return
 
             # Step 2: Parse the file based on the file extension
             ## metadata := [{'source': 'example.pdf', 'page': 1, 'language': 'zh', 'file_size': 2.50}, ...]
+            logger.info("Step 2: Parse the file")
+
             docs, metadata = self._parse_file(filepath, file_size, language)
 
+            logger.info(f"File parsed successfully. Got {len(docs)} documents")
+
             # Step 3: Clean content before splitting
+            logger.info("Step 3: Clean content before splitting")
+
             self.text_processor.clean_page_content(docs)
 
+            logger.info(f"File cleaned successfully. Got {len(docs)} documents, doc0 = {docs[0]}")
+
             # Step 4: Split content into manageable chunks, prepend source to each chunk
+            logger.info("Step 4: Split into chunks")
+
             new_file_pages_chunks = self.text_processor.split_text(docs)
             self.text_processor.prepend_source_in_content(new_file_pages_chunks, source=os.path.basename(filepath))
 
+            logger.info(f"File split successfully. Got {len(new_file_pages_chunks)} chunks, chunk0 = {new_file_pages_chunks[0]}")
+
             # Step 5: Embed each chunk (Document) and save to the vector store
+            logger.info("Step 5: Embed and save to vector store")
             chunk_metadata_list = self.insert_file_data(docs_metadata=metadata, chunks=new_file_pages_chunks, language=language)
-            print(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
+            # print(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
+            logger.info(f"Data successfully inserted into both Chroma and MySQL: {len(chunk_metadata_list)} data chunks")
 
         except FileNotFoundError as e:
             print(f"File not found: {filepath}")
@@ -251,9 +275,13 @@ class DataAgent:
             parser_class = ExcelParser
         else:
             raise ValueError(f"Unsupported file type: {file_ext}")
-        
+        # Init parser
         parser = parser_class(filepath)
+        logger.info(f"Parser initialized: {parser.__class__.__name__}")
+
         try:
+            logger.info("Starting document parsing...")
+            
             docs, metadata = parser.load_and_parse() # metadata := [{'source': src, 'page': page}]
 
             # Further processing of docs and metadata
@@ -275,9 +303,12 @@ class DataAgent:
                     # Replace doc.metadata['source'] with metadata['source'] as doc.metadata['source'] is .md
                     doc.metadata['source'] = meta['source']
             
+            logger.info(f"Parsing complete. Returning {len(docs)} documents with metadata")
+
             return docs, metadata
         
         except Exception as e:
+            logger.error(f"Error during parsing: {e}")
             raise RuntimeError(f"Error parsing file {filepath}: {e}")
 
     def _group_sources_by_key(self, data: List[dict], key: str) -> dict:
