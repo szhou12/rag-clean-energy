@@ -346,6 +346,11 @@ ls -l /path/to/your-key.pem
 sudo apt update
 sudo apt upgrade -y
 
+# If seen service needs restart/reboot, run:
+sudo systemctl restart dbus.service
+
+# OR reboot EC2 instance
+sudo reboot
 sudo apt install docker.io -y
 
 # configure your system to start the Docker service that runs in the background
