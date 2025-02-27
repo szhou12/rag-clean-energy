@@ -141,4 +141,34 @@ class EmbedderFactory:
         return cls._embedder_classes.copy()
 
         
-    
+## Usage
+# # Example 1: Create a predefined model
+# bge_en_embedder = EmbedderFactory.create("bge_base_en")
+# openai_embedder = EmbedderFactory.create("openai_default")
+
+# # Example 2: Create a custom model
+# custom_bge = EmbedderFactory.create_custom("bge", model_name="BAAI/bge-m3")
+
+# # Example 3: Register a new model configuration
+# EmbedderFactory.register_model_config(
+#     "bge_m3", 
+#     {"type": "bge", "model_name": "BAAI/bge-m3"}
+# )
+# bge_m3_embedder = EmbedderFactory.create("bge_m3")
+
+# # Example 4: Get the model from the embedder
+# model = bge_en_embedder.model  # This gives you the actual embedding model
+
+# # Before:
+# self.embedders = {
+#     "openai": OpenAIEmbedding().model,
+#     "bge_en": BgeEmbedding(model_name="BAAI/bge-base-en-v1.5").model,
+#     "bge_zh": BgeEmbedding(model_name="BAAI/bge-base-zh-v1.5").model,
+# }
+
+# # After:
+# self.embedders = {
+#     "openai": EmbedderFactory.create("openai_default").model,
+#     "bge_en": EmbedderFactory.create("bge_base_en").model,
+#     "bge_zh": EmbedderFactory.create("bge_base_zh").model,
+# }

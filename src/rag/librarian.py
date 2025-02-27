@@ -590,7 +590,7 @@ class DataAgent:
         :raises: RuntimeError if any part of the deletion process fails.
         """
         try:
-
+            # 领域展开
             with self.transaction(commit=True) as session:
                 # Step 1: Get chunk IDs and documents
                 # 1-1: MySQL: Get all chunk ids for the given sources
